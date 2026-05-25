@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منظومة دوائي Dwaee - لوحة الطبيب الاختصاص</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-color: #f1f5f9;
+            --sidebar-bg: #0f172a;
+            --primary-color: #3b82f6;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0; padding: 0;
+            display: flex; color: var(--text-main);
+            overflow-x: hidden; height: 100vh;
+        }
+
+        /* طابور المرضى الجانبي */
+        .sidebar {
+            width: 320px; background-color: var(--sidebar-bg); height: 100vh;
+            position: fixed; right: -320px; top: 0; color: white; padding: 20px;
+            box-sizing: border-box; display: flex; flex-direction: column;
+            justify-content: space-between; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1000; box-shadow: -5px 0 25px rgba(0, 0, 0, 0.15);
+        }
+        .sidebar.open { right: 0; }
+        .sidebar-header { border-bottom: 1px solid #1e293b; padding-bottom: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .close-sidebar-btn { background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; }
+        .patient-list { overflow-y: auto; flex-grow: 1; }
+        .patient-card { background: #1e293b; padding: 12px 15px; margin-bottom: 10px; border-radius: 8px; border-right: 4px solid var(--primary-color); cursor: pointer; transition: all 0.2s; }
+        .patient-card:hover { background: #273549; }
+        .patient-card.urgent { border-right-color: var(--warning-color); }
+        .call-secretary-btn { background-color: var(--danger-color); color: white; border: none; padding: 14px; border-radius: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 15px; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.25); margin-top: 15px; }
+
+        /* حاوية المحتوى الرئيسية */
+        .main-container { width: 100%; padding: 20px; box-sizing: border-box; display: grid; grid-template-columns: 1fr 380px; gap: 20px; transition: margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .main-container.shifted { margin-right: 320px; width: calc(100% - 320px); }
+        .top-section { grid-column: span 2; display: flex; align-items: center; gap: 20px; }
+        .toggle-queue-btn { background-color: var(--sidebar-bg); color: white; border: none; padding: 14px 20px; border-radius: 10px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 10px; font-size: 15px; white-space: nowrap; }
+        
+        /* الشعار الفخم للمنظومة */
+        .brand-logo-area { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 22px; color: #0f172a; text-decoration: none; }
+        .brand-logo-area span { color: var(--success-color); }
+
+        .search-wrapper { position: relative; flex-grow: 1; }
+        .search-input { width: 100%; padding: 14px 45px 14px 15px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 15px; box-sizing: border-box; background: var(--card-bg); }
+        .stats-bar { display: flex; gap: 10px; }
+        .stat-mini-box { background: var(--card-bg); padding: 8px 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: bold; }
+
+        /* منطقة الروشتة الوسطى */
+        .prescription-card { background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); display: flex; flex-direction: column; gap: 15px; position: relative; }
+        .clinic-header { border-bottom: 2px dashed #e2e8f0; padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .rx-container { position: relative; }
+        .rx-symbol { position: absolute; right: 15px; top: 12px; font-size: 26px; color: #cbd5e1; font-weight: bold; font-style: italic; user-select: none; }
+        .prescription-textarea { width: 100%; padding: 15px 50px 15px 50px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 16px; box-sizing: border-box; resize: none; background: #fafafa; font-family: monospace; line-height: 1.5; }
+        
+        /* شكل الختم بالصفحة */
+        .stamp-wrapper { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; }
+        .interactive-stamp-btn { width: 110px; height: 110px; border: 2px dashed #cbd5e1; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); font-size: 11px; cursor: pointer; background: #f8fafc; transition: all 0.3s ease; text-align: center; user-select: none; }
+        .stamp-activated { border: 3px double #1e40af !important; color: #1e40af !important; background: rgba(30, 64, 175, 0.04) !important; transform: rotate(-10deg) scale(1.05); font-weight: bold; }
+        .stamp-round { border-radius: 50%; }
+        .stamp-square { border-radius: 8px; }
+
+        .action-buttons-group { display: flex; flex-direction: column; gap: 8px; width: 65%; }
+        .btn { padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-send-pharmacy { background: var(--success-color); color: white; }
+        .btn-print-rx { background: #3b82f6; color: white; }
+        .btn-print-full { background: #64748b; color: white; }
+
+        /* منطقة اليسار - الفحوصات والأشعة */
+        .labs-panel { display: flex; flex-direction: column; gap: 20px; }
+        .section-card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+        .section-title { margin: 0 0 15px 0; font-size: 16px; font-weight: bold; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; }
+        .checkbox-group { max-height: 140px; overflow-y: auto; }
+        .check-item { display: flex; align-items: center; margin-bottom: 10px; font-size: 14px; }
+        .check-item input { margin-left: 10px; width: 17px; height: 17px; }
+        .custom-add-row { display: flex; gap: 8px; margin: 15px 0 5px 0; padding-top: 10px; border-top: 1px dashed #e2e8f0; }
+        .custom-input { flex-grow: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
+        .custom-add-btn { background: var(--primary-color); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+
+        /* لوحة التحكم بالإعدادات الجانبية */
+        .settings-card { background: var(--sidebar-bg); color: white; padding: 15px; border-radius: 12px; margin-top: 15px; }
+        .settings-card select, .settings-card input { width: 100%; padding: 8px; margin-top: 5px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #334155; background: #1e293b; color: white; font-size: 13px; }
+
+        /* 🖨️ كود السحر الخاص بالطباعة الذكية دون تشويه الواجهة */
+        @media print {
+            body { background: white; color: black; height: auto; }
+            .sidebar, .top-section, .labs-panel, .settings-card, .action-buttons-group, .interactive-stamp-btn, label, .clinic-header small, .close-sidebar-btn {
+                display: none !important;
+            }
+            .main-container { display: block; width: 100%; padding: 0; margin: 0; }
+            .prescription-card { box-shadow: none; padding: 0; border: none; width: 100%; }
+            
+            /* حالة طباعة الروشتة فقط */
+            body.print-rx-only .notes-area-print, 
+            body.print-rx-only .full-report-print-only {
+                display: none !important;
+            }
+
+            /* إظهار الختم المطبوع بشكل فخم بأسفل الصفحة تلقائياً */
+            .print-stamp-mirror {
+                display: block !important;
+                position: absolute; left: 40px; bottom: 50px;
+                border: 3px double #1e40af; color: #1e40af;
+                padding: 15px; font-weight: bold; text-align: center;
+                transform: rotate(-5deg); font-size: 14px;
+            }
+        }
+        .print-stamp-mirror { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebarQueue" class="sidebar">
+        <div class="sidebar-header">
+            <h3><i class="fa-solid fa-user-clock"></i> طابور الحجز</h3>
+            <button class="close-sidebar-btn" id="closeSidebar"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="patient-list">
+            <div class="patient-card" data-name="أحمد علي كريم"><strong>أحمد علي كريم</strong><br><small>12:22 م - كشف عادي</small></div>
+            <div class="patient-card urgent" data-name="سارة محمود جاسم"><strong>سارة محمود جاسم</strong><br><small>12:35 م - حالة طارئة</small></div>
+            <div class="patient-card" data-name="محمد ضياء حسين"><strong>محمد ضياء حسين</strong><br><small>01:05 م - مراجعة</small></div>
+        </div>
+        <button class="call-secretary-btn" id="callSecretaryBtn"><i class="fa-solid fa-bullhorn"></i> مناداة السكرتير</button>
+    </div>
+
+    <div id="mainContainer" class="main-container">
+        
+        <div class="top-section">
+            <button class="toggle-queue-btn" id="toggleSidebar"><i class="fa-solid fa-bars"></i> طابور المرضى</button>
+            <div class="search-wrapper">
+                <i class="fa-solid fa-magnifying-glass" style="position: absolute; right: 15px; top: 18px; color: var(--text-muted);"></i>
+                <input type="text" id="customPatientInput" class="search-input" placeholder="بحث شامل أو اكتب اسم مريض جديد هنا...">
+            </div>
+            <div class="stats-bar">
+                <div class="stat-mini-box" style="border-bottom: 3px solid var(--warning-color)">الانتظار: 12</div>
+                <div class="stat-mini-box" style="border-bottom: 3px solid var(--success-color)">المعاينون: 28</div>
+            </div>
+        </div>
+
+        <div class="prescription-card" id="prescriptionCard">
+            <div class="clinic-header">
+                <div>
+                    <h3 style="margin: 0; color: var(--primary-color);">العيادة الاستشارية التخصصية</h3>
+                    <small style="color: var(--text-muted);">الدكتور الاختصاص | أمراض باطنية وقلبية</small>
+                </div>
+                <a href="#" class="brand-logo-area">دوائي<span>.Dwaee</span></a>
+            </div>
+            
+            <div style="font-weight: bold; font-size: 16px;">المريض الحالي: <span id="patientName" style="color:var(--primary-color);">أحمد علي كريم</span></div>
+            
+            <div class="notes-area-print">
+                <label style="font-size: 14px; font-weight: bold; display: block; margin-bottom: 5px;">التشخيص والملاحظات السريرية:</label>
+                <textarea id="diagnosticNotes" style="width:100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; box-sizing: border-box;" rows="2" placeholder="اكتب الملاحظات الطبية..."></textarea>
+            </div>
+            
+            <div class="rx-container">
+                <label style="font-size: 14px; font-weight: bold; display: block; margin-bottom: 5px;">الروشتة الإلكترونية والعلاجات (كل علاج في سطر):</label>
+                <span class="rx-symbol">Rₓ</span>
+                <textarea class="prescription-textarea" id="medsTextArea" rows="6" placeholder="اكتب أسماء الأدوية هنا...">Amoxicillin 500mg&#10;Paracetamol 500mg</textarea>
+            </div>
+
+            <div class="full-report-print-only" id="fullReportPrintArea" style="margin-top:15px; border-top:1px dashed #ccc; padding-top:15px; display:none;">
+                <h4 style="color:var(--primary-color); margin-bottom:5px;">📋 الفحوصات والأشعة المطلوبة للمختبر والسونار:</h4>
+                <ul id="printLabsList" style="padding-right:20px; margin:5px 0;"></ul>
+            </div>
+
+            <div class="print-stamp-mirror" id="printStampMirror">العيادة الاستشارية<br>مُصادق إلكترونياً</div>
+
+            <div class="stamp-wrapper">
+                <div id="clinicStamp" class="interactive-stamp-btn stamp-round">
+                    <i class="fa-solid fa-stamp" style="font-size:22px; margin-bottom:6px;"></i>
+                    <span id="stampText">اضغط لختم الوصفة</span>
+                </div>
+                
+                <div class="action-buttons-group">
+                    <button class="btn btn-send-pharmacy" id="btnSendPharmacy"><i class="fa-solid fa-prescription-bottle-medical"></i> إرسال الوصفة للصيدلية لايف</button>
+                    <button class="btn btn-print-rx" id="btnPrintRxOnly"><i class="fa-solid fa-file-medical"></i> طباعة الوصفة (الروشتة فقط)</button>
+                    <button class="btn btn-print-full" id="btnPrintFullReport"><i class="fa-solid fa-print"></i> طباعة التقرير الطبي الكامل (A4)</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="labs-panel">
+            <div class="section-card">
+                <div class="section-title" style="color: var(--primary-color);"><i class="fa-solid fa-microscope"></i> الفحوصات المختبرية</div>
+                <div id="labGroup" class="checkbox-group">
+                    <div class="check-item"><input type="checkbox" checked data-name="CBC (صورة الدم)"> <span>CBC (صورة الدم الكاملة)</span></div>
+                    <div class="check-item"><input type="checkbox" data-name="Urea / Creatinine"> <span>Urea / Creatinine</span></div>
+                    <div class="check-item"><input type="checkbox" data-name="HbA1c (السكر التراكمي)"> <span>HbA1c (السكر التراكمي)</span></div>
+                </div>
+                <div class="custom-add-row">
+                    <input type="text" id="inputCustomLab" class="custom-input" placeholder="كتابة اسم تحليل...">
+                    <button class="custom-add-btn" id="btnAddLab"><i class="fa-solid fa-plus"></i></button>
+                </div>
+            </div>
+
+            <div class="section-card">
+                <div class="section-title" style="color: var(--warning-color);"><i class="fa-solid fa-x-ray"></i> وحدة الأشعة والسونار</div>
+                <div id="xrayGroup" class="checkbox-group">
+                    <div class="check-item"><input type="checkbox" data-name="Chest X-Ray"> <span>Chest X-Ray (أشعة صدر)</span></div>
+                    <div class="check-item"><input type="checkbox" data-name="Abdominal Sonar"> <span>Abdominal Sonar (سونار بطن)</span></div>
+                </div>
+                <div class="custom-add-row">
+                    <input type="text" id="inputCustomXray" class="custom-input" placeholder="طلب فحص شعاعي...">
+                    <button class="custom-add-btn" id="btnAddXray" style="background:var(--warning-color)"><i class="fa-solid fa-plus"></i></button>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <h4 style="margin:0 0 10px 0;"><i class="fa-solid fa-sliders"></i> لوحة ضبط الختم الهوائي</h4>
+                <label>شكل الختم الرسمي:</label>
+                <select id="settingStampShape">
+                    <option value="stamp-round">دائري كلاسيك</option>
+                    <option value="stamp-square">مستطيل رسمي مودرن</option>
+                </select>
+                <label>نص الختم الداخلي:</label>
+                <input type="text" id="settingStampText" value="د. مصطفى العيادة الاستشارية">
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyC_k69WKhgdc_ocykxewWP2Mnr8u_780yU",
+          authDomain: "clinc-app-854a5.firebaseapp.com",
+          projectId: "clinc-app-854a5",
+          storageBucket: "clinc-app-854a5.firebasestorage.app",
+          messagingSenderId: "245805135578",
+          appId: "1:245805135578:web:99ee6cb9a24cae4eb6d7e3"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const sidebar = document.getElementById('sidebarQueue');
+        const mainContainer = document.getElementById('mainContainer');
+        const patientNameSpan = document.getElementById("patientName");
+        const customPatientInput = document.getElementById("customPatientInput");
+        let isStamped = false;
+
+        document.getElementById('toggleSidebar').addEventListener('click', () => { sidebar.classList.toggle('open'); mainContainer.classList.toggle('shifted'); });
+        document.getElementById('closeSidebar').addEventListener('click', () => { sidebar.classList.remove('open'); mainContainer.classList.remove('shifted'); });
+
+        document.querySelectorAll('.patient-card').forEach(card => {
+            card.addEventListener('click', () => {
+                patientNameSpan.innerText = card.getAttribute('data-name');
+                customPatientInput.value = "";
+                sidebar.classList.remove('open'); mainContainer.classList.remove('shifted');
+            });
+        });
+
+        customPatientInput.addEventListener('input', (e) => {
+            patientNameSpan.innerText = e.target.value.trim() !== "" ? e.target.value.trim() : "أحمد علي كريم";
+        });
+
+        // تفعيل الختم الإلكتروني التفاعلي بالصفحة بناءً على الإعدادات
+        const stampBtn = document.getElementById('clinicStamp');
+        stampBtn.addEventListener('click', () => {
+            isStamped = true;
+            const shape = document.getElementById("settingStampShape").value;
+            const text = document.getElementById("settingStampText").value;
+            
+            stampBtn.className = `interactive-stamp-btn stamp-activated ${shape}`;
+            stampBtn.innerHTML = `<span style="font-size:9px;">${text}</span><i class="fa-solid fa-signature" style="margin:2px 0; font-size:14px;"></i><span style="font-size:9px;">مُصادق حي</span>`;
+            
+            document.getElementById("printStampMirror").innerText = text + "\nمُصادق إلكترونياً";
+        });
+
+        // طباعة الوصفة (الروشتة فقط)
+        document.getElementById("btnPrintRxOnly").addEventListener('click', () => {
+            document.body.className = "print-rx-only";
+            window.print();
+        });
+
+        // طباعة التقرير الطبي الكامل (A4)
+        document.getElementById("btnPrintFullReport").addEventListener('click', () => {
+            document.body.className = "";
+            const listArea = document.getElementById("printLabsList");
+            listArea.innerHTML = "";
+            
+            // جمع الفحوصات والأشعة المختارة بالصفحة لإظهارها بالتقرير
+            document.querySelectorAll(".checkbox-group input:checked").forEach(ch => {
+                listArea.innerHTML += `<li>${ch.getAttribute('data-name')}</li>`;
+            });
+            if(listArea.innerHTML === "") listArea.innerHTML = "<li>لا يوجد فحوصات جانبية مطلوبة</li>";
+
+            const reportArea = document.getElementById("fullReportPrintArea");
+            reportArea.style.display = "block";
+            window.print();
+            setTimeout(() => { reportArea.style.display = "none"; }, 500);
+        });
+
+        // رفع البيانات الحية للسيرفر وإرسالها للصيدلية
+        document.getElementById('btnSendPharmacy').addEventListener('click', async () => {
+            let textData = document.getElementById("medsTextArea").value.trim();
+            if(!textData) { alert("🚨 الروشتة فارغة!"); return; }
+
+            let medsArray = textData.split('\n').map((line, index) => {
+                let cleanName = line.trim();
+                let barcode = "333";
+                if(cleanName.toLowerCase().includes("amox")) barcode = "111";
+                else if(cleanName.toLowerCase().includes("para")) barcode = "222";
+                else barcode = (100 + index).toString();
+                return { name: cleanName, barcode: barcode, scanned: false };
+            });
+
+            try {
+                const docRef = await addDoc(collection(db, "prescriptions"), {
+                    name: patientNameSpan.innerText,
+                    meds: medsArray,
+                    stamped: isStamped,
+                    stampText: document.getElementById("settingStampText").value,
+                    date: serverTimestamp(),
+                    status: "pending"
+                });
+                alert(`🎉 نجاح! تم ختم الروشتة وإرسالها لايف للصيدلية بالرقم السري:\n${docRef.id}`);
+            } catch (error) { alert("🚨 فشل في الرفع: " + error.message); }
+        });
+
+        document.getElementById('btnAddLab').addEventListener('click', () => {
+            let input = document.getElementById('inputCustomLab');
+            if(input.value.trim()) {
+                document.getElementById('labGroup').innerHTML += `<div class="check-item"><input type="checkbox" checked data-name="${input.value.trim()}"> <span>${input.value.trim()}</span></div>`;
+                input.value = "";
+            }
+        });
+        document.getElementById('btnAddXray').addEventListener('click', () => {
+            let input = document.getElementById('inputCustomXray');
+            if(input.value.trim()) {
+                document.getElementById('xrayGroup').innerHTML += `<div class="check-item"><input type="checkbox" checked data-name="${input.value.trim()}"> <span>${input.value.trim()}</span></div>`;
+                input.value = "";
+            }
+        });
+    </script>
+</body>
+</html>
