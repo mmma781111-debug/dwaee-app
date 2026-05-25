@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منظومة دوائي Dwaee - الصيدلية والمخزن الذكي</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --sidebar-dark: #020617;
+            --primary-color: #10b981;
+            --blue-medical: #3b82f6;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --text-light: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+        }
+
+        body { 
+            font-family: system-ui, sans-serif; 
+            background-color: var(--bg-color); 
+            margin: 0; padding: 0; 
+            color: var(--text-light); 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+        }
+        
+        .top-navbar { background-color: var(--sidebar-dark); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); height: 65px; box-sizing: border-box; }
+        .logo-section { display: flex; align-items: center; gap: 12px; }
+        .barcode-scanner-box { position: relative; width: 30%; }
+        .barcode-scanner-box input { width: 100%; padding: 10px 40px 10px 15px; border-radius: 8px; border: 2px solid var(--blue-medical); background: var(--panel-bg); color: white; font-weight: bold; box-sizing: border-box; }
+        
+        #cameraStreamContainer { width: 180px; height: 120px; background: #000; border: 2px solid var(--primary-color); border-radius: 8px; overflow: hidden; position: relative; }
+
+        /* التوزيع الأصلي الممتد بكامل عرض الشاشة إلى 3 أعمدة متناسقة */
+        .main-layout { 
+            display: grid; 
+            grid-template-columns: 280px 1fr 350px; 
+            gap: 15px; 
+            padding: 15px; 
+            box-sizing: border-box; 
+            flex-grow: 1; 
+            height: calc(100vh - 65px); 
+            overflow: hidden; 
+        }
+        
+        .column-prescriptions { background: var(--panel-bg); border-radius: 10px; border: 1px solid var(--border-color); padding: 12px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+        .rx-card { background: var(--bg-color); border: 1px solid var(--border-color); border-right: 4px solid var(--blue-medical); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s; }
+        .rx-card.active { background: rgba(59, 130, 246, 0.15); border-color: var(--blue-medical); }
+
+        .column-center { display: flex; flex-direction: column; gap: 15px; overflow: hidden; }
+        .panel-verification { background: var(--panel-bg); border-radius: 10px; border: 1px solid var(--border-color); padding: 15px; flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .table-wrapper { flex-grow: 1; overflow-y: auto; margin-top: 12px; }
+        
+        .verification-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: right; }
+        .verification-table th { background: var(--sidebar-dark); color: var(--text-muted); padding: 12px; position: sticky; top: 0; }
+        .verification-table td { padding: 12px; border-bottom: 1px solid var(--border-color); }
+
+        .item-row { transition: background 0.1s ease; cursor: pointer; }
+        .item-row.scanned { background: rgba(16, 185, 129, 0.15) !important; }
+        .item-row.pending { background: rgba(245, 158, 11, 0.02); }
+
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; }
+        .badge-waiting { background: rgba(245, 158, 11, 0.15); color: var(--warning-color); }
+        .badge-success { background: rgba(16, 185, 129, 0.2); color: var(--primary-color); }
+
+        .panel-inventory-management { background: var(--sidebar-dark); border-radius: 10px; padding: 12px; display: flex; gap: 10px; align-items: center; border: 1px dashed var(--border-color); }
+        .inv-input { padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--panel-bg); color: white; font-size: 12px; }
+
+        .column-billing { background: var(--panel-bg); border-radius: 10px; border: 1px solid var(--border-color); padding: 15px; display: flex; flex-direction: column; justify-content: space-between; }
+        .invoice-paper { background: white; color: black; border-radius: 6px; padding: 15px; font-family: monospace; font-size: 12px; flex-grow: 1; margin-bottom: 15px; overflow-y: auto; position: relative; }
+        .invoice-row { display: flex; justify-content: space-between; margin: 5px 0; }
+
+        .invoice-doctor-stamp { border: 2px double #1e40af; color: #1e40af; padding: 5px; text-align: center; font-weight: bold; font-size: 10px; margin-top: 10px; transform: rotate(-3deg); display: none; }
+
+        .btn { width: 100%; padding: 12px; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; border: none; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-success { background: var(--primary-color); color: white; }
+        .btn-primary { background: var(--blue-medical); color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="top-navbar">
+        <div class="logo-section">
+            <i class="fa-solid fa-robot" style="color: var(--primary-color); font-size: 22px;"></i>
+            <div>
+                <h1 style="font-size: 16px; margin:0;">دوائي Dwaee الموحد</h1>
+                <small style="color: var(--text-muted); font-size: 10px;">لوحة المطابقة الـلايف وصرف المخازن</small>
+            </div>
+        </div>
+
+        <div class="barcode-scanner-box">
+            <i class="fa-solid fa-keyboard" style="position: absolute; right: 12px; top: 12px; color: var(--blue-medical);"></i>
+            <input type="text" id="globalBarcodeField" placeholder="اضغط هنا للكيبورد أو مرر باركود (111 أو 222)...">
+        </div>
+
+        <div style="display:flex; align-items:center; gap:10px;">
+            <small style="font-size:11px; color:var(--text-muted); text-align:left;">كاميرا المسح<br>الحي المباشر:</small>
+            <div id="cameraStreamContainer"></div>
+        </div>
+    </div>
+
+    <div class="main-layout">
+        
+        <div class="column-prescriptions" id="rxQueue">
+            <div style="font-size: 12px; font-weight: bold; color: var(--blue-medical); border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+                <i class="fa-solid fa-headset"></i> الروشتات الواردة أوتوماتيكياً
+            </div>
+        </div>
+
+        <div class="column-center">
+            <div class="panel-verification">
+                <div style="font-size: 14px; font-weight: bold; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--primary-color);"><i class="fa-solid fa-wand-magic-sparkles"></i> لوحة فحص ومطابقة العبوات بالمخزن (اللمس فوري بدون رمشة)</span>
+                    <button class="btn btn-primary" id="btnFastSetup" style="width:auto; padding:6px 12px; font-size:11px;"><i class="fa-solid fa-layer-group"></i> 1. تجهيز مخزن تجريبي سريع</button>
+                </div>
+
+                <div class="table-wrapper">
+                    <table class="verification-table">
+                        <thead>
+                            <tr>
+                                <th>الدواء المطلوب</th>
+                                <th>المخزون المتوفر</th>
+                                <th>الباركود</th>
+                                <th>تاريخ الإكسباير</th>
+                                <th>السعر (د.ع)</th>
+                                <th>حالة المطابقة الفورية</th>
+                            </tr>
+                        </thead>
+                        <tbody id="verificationTableBody">
+                            <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:40px;">بانتظار بث روشتة حية من عيادة الطبيب...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel-inventory-management">
+                <span style="font-size:12px; font-weight:bold; color:var(--warning-color); white-space:nowrap;"><i class="fa-solid fa-box-open"></i> 2. إضافة وتغذية مخزون يدوي:</span>
+                <input type="text" id="invItemName" class="inv-input" placeholder="اسم الدواء..." style="width:140px;">
+                <input type="number" id="invItemQty" class="inv-input" placeholder="الكمية..." style="width:70px;">
+                <input type="text" id="invItemBarcode" class="inv-input" placeholder="رقم الباركود..." style="width:100px;">
+                <button class="btn btn-success" id="btnSaveInvManual" style="padding:8px 12px; width:auto; font-size:11px;"><i class="fa-solid fa-floppy-disk"></i> حفظ بالسيرفر</button>
+            </div>
+        </div>
+
+        <div class="column-billing">
+            <div style="font-size: 13px; font-weight: bold; color: #cbd5e1;"><i class="fa-solid fa-file-invoice-dollar"></i> الفاتورة الموحدة وجرعات الصرف</div>
+            
+            <div class="invoice-paper" id="invoiceArea">
+                <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 8px;">
+                    <h4 style="margin:0;">صيدلية دوائي Dwaee الرقمية</h4>
+                    <p style="font-size: 10px; margin:4px 0;" id="invMeta">الروشتة الحالية: لا يوجد مريض</p>
+                </div>
+                <div id="invoiceContent"></div>
+                
+                <div class="invoice-doctor-stamp" id="invoiceDoctorStamp"></div>
+
+                <hr style="border: none; border-top: 1px dashed #000; margin-top: 15px;">
+                <div class="invoice-row" style="font-weight: bold; font-size: 14px;">
+                    <span>الصافي الكلي:</span>
+                    <span id="invoiceTotalText">0 د.ع</span>
+                </div>
+            </div>
+
+            <button class="btn btn-success" id="btnFinalDispense">
+                <i class="fa-solid fa-check-double"></i> 3. ترحيل الفاتورة وتنزيل المخزن النهائي
+            </button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, query, where, doc, updateDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyC_k69WKhgdc_ocykxewWP2Mnr8u_780yU",
+          authDomain: "clinc-app-854a5.firebaseapp.com",
+          projectId: "clinc-app-854a5",
+          storageBucket: "clinc-app-854a5.firebasestorage.app",
+          messagingSenderId: "245805135578",
+          appId: "1:245805135578:web:99ee6cb9a24cae4eb6d7e3"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let loadedPrescriptions = {};
+        let activeRxId = null;
+        let cachedInventory = {}; 
+
+        // مزامنة المخزن مسبقاً بالكاش لمنع الرمشة نهائياً
+        onSnapshot(collection(db, "inventory"), (snap) => {
+            snap.forEach(d => { cachedInventory[d.id] = d.data(); });
+            if(activeRxId) { renderPharmacyDashboard(true); } 
+        });
+
+        // 🔄 1. التجهيز التلقائي للمخزن التجريبي بالسيرفر
+        document.getElementById("btnFastSetup").addEventListener('click', async () => {
+            alert("⏳ جاري رفع المخزن التجريبي الموحد للفايربيس...");
+            await setDoc(doc(db, "inventory", "111"), { name: "Amoxicillin 500mg", qty: 50, price: 12000, expiry: "2028-10" });
+            await setDoc(doc(db, "inventory", "222"), { name: "Paracetamol 500mg", qty: 100, price: 3000, expiry: "2027-04" });
+            await setDoc(doc(db, "inventory", "333"), { name: "علاج عام ومستودع", qty: 25, price: 6000, expiry: "2027-12" });
+            alert("✅ تم بنجاح! المخزن متصل وجاهز فوراً بالداتابيس.");
+        });
+
+        // 📥 2. الإضافة اليدوية للمواد الجديدة للمخزن
+        document.getElementById("btnSaveInvManual").addEventListener('click', async () => {
+            const name = document.getElementById("invItemName").value.trim();
+            const qty = parseInt(document.getElementById("invItemQty").value);
+            const barcode = document.getElementById("invItemBarcode").value.trim();
+            
+            if(!name || !qty || !barcode) { alert("🚨 يرجى ملء كافة حقول المخزن!"); return; }
+            
+            await setDoc(doc(db, "inventory", barcode), { name
