@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="screen-orientation" content="landscape">
+    <title>منظومة دوائي Dwaee - الصيدلية والمخزن الذكي</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+    <style>
+        /* ========== متغيرات الثيم الداكن والفاتح ========== */
+        :root, [data-theme="dark"] {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --sidebar-dark: #020617;
+            --primary-color: #10b981;
+            --blue-medical: #3b82f6;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --text-light: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --invoice-bg: #fff;
+            --invoice-color: #000;
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f0f4f8;
+            --panel-bg: #ffffff;
+            --sidebar-dark: #e2e8f0;
+            --primary-color: #059669;
+            --blue-medical: #2563eb;
+            --warning-color: #d97706;
+            --danger-color: #dc2626;
+            --text-light: #0f172a;
+            --text-muted: #475569;
+            --border-color: #cbd5e1;
+            --invoice-bg: #fff;
+            --invoice-color: #000;
+        }
+
+        * { box-sizing: border-box; font-family: system-ui, sans-serif; }
+
+        /* ========== قفل الشاشة أفقي فقط + ملء كامل ========== */
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-light);
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* ========== شاشة تحذير الوضع العمودي ========== */
+        #rotate-warning {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #020617;
+            z-index: 9999999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            color: #fff;
+            text-align: center;
+            padding: 30px;
+        }
+        #rotate-warning i { font-size: 60px; color: #3b82f6; animation: rotateAnim 1.5s ease-in-out infinite alternate; }
+        @keyframes rotateAnim { from { transform: rotate(0deg); } to { transform: rotate(90deg); } }
+        #rotate-warning h2 { font-size: 20px; margin: 0; }
+        #rotate-warning p { font-size: 14px; color: #94a3b8; margin: 0; }
+
+        /* ========== في الوضع العمودي: إظهار التحذير وإخفاء التطبيق ========== */
+        @media (orientation: portrait) {
+            #rotate-warning { display: flex; }
+            #app-wrapper { display: none !important; }
+        }
+        @media (orientation: landscape) {
+            #rotate-warning { display: none; }
+            #app-wrapper { display: flex; }
+        }
+
+        /* ========== الغلاف الرئيسي ========== */
+        #app-wrapper {
+            flex-direction: column;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ========== الشريط العلوي ========== */
+        .top-navbar {
+            background-color: var(--sidebar-dark);
+            padding: 6px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            height: 58px;
+            flex-shrink: 0;
+            gap: 10px;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .logo-section h1 { font-size: 13px; margin: 0; white-space: nowrap; }
+        .logo-section small { color: var(--text-muted); font-size: 9px; display: block; }
+
+        /* ========== زر تبديل الثيم ========== */
+        .btn-theme-toggle {
+            background: transparent;
+            border: 1.5px solid var(--border-color);
+            color: var(--text-light);
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .btn-theme-toggle:hover { background: var(--panel-bg); border-color: var(--blue-medical); color: var(--blue-medical); }
+
+        /* ========== حقل الباركود ========== */
+        .barcode-scanner-box { position: relative; flex-grow: 1; max-width: 340px; }
+        .barcode-scanner-box input {
+            width: 100%;
+            padding: 8px 32px 8px 10px;
+            border-radius: 7px;
+            border: 2px solid var(--blue-medical);
+            background: var(--panel-bg);
+            color: var(--text-light);
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .barcode-scanner-box i { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--blue-medical); font-size: 13px; }
+
+        /* ========== منطقة الكاميرا ========== */
+        .camera-control-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(2, 6, 23, 0.5);
+            padding: 4px 8px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+        .btn-trigger-camera {
+            background: var(--blue-medical);
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+        }
+        /* ✅ حاوية الكاميرا الفعلية - مرئية دائماً */
+        #cameraStreamContainer {
+            width: 100px;
+            height: 50px;
+            background: #000;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+        /* رسالة داخل الكاميرا قبل التشغيل */
+        #cameraStreamContainer::before {
+            content: "الكاميرا";
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: #475569;
+            pointer-events: none;
+        }
+
+        /* ========== التخطيط الرئيسي ========== */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 240px 1fr 290px;
+            gap: 10px;
+            padding: 10px;
+            flex-grow: 1;
+            overflow: hidden;
+            height: calc(100vh - 58px);
+        }
+
+        .column-panel {
+            background: var(--panel-bg);
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow: hidden;
+            transition: background-color 0.3s;
+        }
+
+        /* ========== عمود الروشتات ========== */
+        .column-prescriptions { overflow-y: auto; }
+        .rx-card {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-right: 4px solid var(--blue-medical);
+            border-radius: 8px;
+            padding: 10px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background 0.2s;
+        }
+        .rx-card.active { background: rgba(59, 130, 246, 0.15); border-color: var(--blue-medical); }
+
+        /* ========== العمود الأوسط ========== */
+        .column-center { display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+
+        .table-wrapper {
+            width: 100%;
+            overflow: auto;
+            background: var(--sidebar-dark);
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            flex-grow: 1;
+        }
+
+        .verification-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            text-align: right;
+            min-width: 500px;
+        }
+        .verification-table th {
+            background: var(--sidebar-dark);
+            color: var(--text-muted);
+            padding: 9px 10px;
+            border-bottom: 2px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        .verification-table td { padding: 9px 10px; border-bottom: 1px solid var(--border-color); color: var(--text-light); vertical-align: middle; }
+
+        .item-row.scanned { background: rgba(16, 185, 129, 0.12) !important; }
+
+        .status-badge { padding: 3px 7px; border-radius: 4px; font-size: 10px; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; }
+        .badge-waiting { background: rgba(245, 158, 11, 0.15); color: var(--warning-color); }
+        .badge-success { background: rgba(16, 185, 129, 0.2); color: var(--primary-color); }
+
+        /* ========== لوحة إضافة مادة ========== */
+        .panel-inventory-management {
+            background: var(--sidebar-dark);
+            border-radius: 8px;
+            padding: 8px 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+            border: 1px dashed var(--border-color);
+            flex-shrink: 0;
+        }
+        .inv-input {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: var(--panel-bg);
+            color: var(--text-light);
+            font-size: 11px;
+            flex-grow: 1;
+        }
+
+        /* ========== الفاتورة ========== */
+        .invoice-paper {
+            background: var(--invoice-bg);
+            color: var(--invoice-color);
+            border-radius: 6px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 11px;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        .invoice-row { display: flex; justify-content: space-between; margin: 4px 0; }
+        .invoice-doctor-stamp { border: 2px double #1e40af; color: #1e40af; padding: 5px; text-align: center; font-weight: bold; font-size: 10px; margin-top: 8px; display: none; }
+
+        /* ========== أزرار ========== */
+        .btn { padding: 8px 12px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer; border: none; display: flex; align-items: center; justify-content: center; gap: 6px; transition: opacity 0.2s; }
+        .btn:active { opacity: 0.8; }
+        .btn-success { background: var(--primary-color); color: white; }
+        .btn-primary { background: var(--blue-medical); color: white; }
+        .btn-danger { background: var(--danger-color); color: white; }
+        .btn-mini { padding: 4px 8px; font-size: 10px; border-radius: 4px; display: inline-flex; gap: 4px; align-items: center; cursor: pointer; border: none; font-weight: bold; }
+
+        /* ========== مودال جرد المخزن ========== */
+        .force-stock-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.88);
+            z-index: 999999;
+            justify-content: center;
+            align-items: center;
+            padding: 8px;
+        }
+        .stock-modal-content {
+            background: var(--panel-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            width: 98%;
+            max-width: 1100px;
+            max-height: 92vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .stock-modal-header { padding: 12px 15px; background: var(--sidebar-dark); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .stock-modal-body { padding: 12px; overflow-y: auto; flex-grow: 1; -webkit-overflow-scrolling: touch; }
+
+        /* ========== ألوان الإكسباير ========== */
+        .exp-expired { background: rgba(239, 68, 68, 0.25); color: #f87171; padding: 3px 7px; border-radius: 4px; font-weight: bold; border: 1px solid var(--danger-color); }
+        .exp-warning { background: rgba(245, 158, 11, 0.25); color: #fbbf24; padding: 3px 7px; border-radius: 4px; font-weight: bold; border: 1px solid var(--warning-color); }
+        .exp-safe { background: rgba(16, 185, 129, 0.25); color: #34d399; padding: 3px 7px; border-radius: 4px; font-weight: bold; }
+
+        /* ========== Scrollbar مخصص ========== */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+
+        /* ========== مؤشر نشاط الكاميرا ========== */
+        .camera-active-dot {
+            width: 8px; height: 8px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            display: none;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+    </style>
+</head>
+<body>
+
+    <!-- ⚠️ شاشة تحذير الوضع العمودي -->
+    <div id="rotate-warning">
+        <i class="fa-solid fa-rotate"></i>
+        <h2>يرجى تدوير الجهاز أفقياً</h2>
+        <p>منظومة دوائي مصممة للعمل بالوضع الأفقي فقط لضمان أفضل تجربة</p>
+    </div>
+
+    <!-- 📱 التطبيق الرئيسي -->
+    <div id="app-wrapper">
+
+        <!-- الشريط العلوي -->
+        <div class="top-navbar">
+
+            <!-- الشعار + زر الثيم -->
+            <div class="logo-section">
+                <i class="fa-solid fa-robot" style="color: var(--primary-color); font-size: 20px;"></i>
+                <div>
+                    <h1>دوائي Dwaee الموحد</h1>
+                    <small>نظام إدارة وتدقيق المخازن لايف</small>
+                </div>
+                <!-- ✅ زر تبديل الثيم -->
+                <button class="btn-theme-toggle" id="btnThemeToggle" title="تبديل الثيم">
+                    <i class="fa-solid fa-moon" id="themeIcon"></i>
+                </button>
+            </div>
+
+            <!-- حقل الباركود -->
+            <div class="barcode-scanner-box">
+                <i class="fa-solid fa-keyboard"></i>
+                <input type="text" id="globalBarcodeField" placeholder="اضغط هنا أو مرر باركود العلاج...">
+            </div>
+
+            <!-- كاميرا الباركود -->
+            <div class="camera-control-wrapper">
+                <button class="btn-trigger-camera" id="btnLaunchCamera">
+                    <i class="fa-solid fa-camera"></i>
+                    <span id="cameraBtnText">تشغيل الكاميرا</span>
+                </button>
+                <div class="camera-active-dot" id="cameraActiveDot"></div>
+                <!-- ✅ الحاوية الفعلية لمكتبة Html5Qrcode -->
+                <div id="cameraStreamContainer"></div>
+            </div>
+        </div>
+
+        <!-- التخطيط الرئيسي -->
+        <div class="main-layout">
+
+            <!-- عمود الروشتات -->
+            <div class="column-panel column-prescriptions" id="rxQueue">
+                <div style="font-size: 12px; font-weight: bold; color: var(--blue-medical); border-bottom: 1px solid var(--border-color); padding-bottom: 6px; flex-shrink: 0;">
+                    <i class="fa-solid fa-headset"></i> الروشتات المعلقة لايف
+                </div>
+            </div>
+
+            <!-- العمود الأوسط -->
+            <div class="column-center">
+                <div class="column-panel" style="flex-grow: 1; overflow: hidden;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0;">
+                        <span style="color: var(--primary-color); font-size: 12px; font-weight: bold;">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> لوحة الفحص والمطابقة الفورية
+                        </span>
+                        <button class="btn btn-primary" id="btnOpenInventoryModal" style="font-size:11px; padding:6px 10px;">
+                            <i class="fa-solid fa-boxes-stacked"></i> فتح شاشة جرد المخزن
+                        </button>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table class="verification-table">
+                            <thead>
+                                <tr>
+                                    <th>الدواء المطلوب</th>
+                                    <th>المخزون المتوفر</th>
+                                    <th>الباركود</th>
+                                    <th>الإكسباير</th>
+                                    <th>السعر</th>
+                                    <th>الحالة الفورية</th>
+                                </tr>
+                            </thead>
+                            <tbody id="verificationTableBody">
+                                <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:30px;">بانتظار اختيار روشتة...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- لوحة إضافة مادة -->
+                <div class="panel-inventory-management">
+                    <span style="font-size:11px; font-weight:bold; color:var(--warning-color); white-space:nowrap;">
+                        <i class="fa-solid fa-box-open"></i> إضافة مادة للمخزن:
+                    </span>
+                    <input type="text" id="invItemName" class="inv-input" placeholder="اسم الدواء...">
+                    <input type="text" id="invCompany" class="inv-input" placeholder="الشركة..." style="max-width:100px;">
+                    <input type="number" id="invItemQty" class="inv-input" placeholder="الكمية" style="max-width:65px;">
+                    <input type="number" id="invItemPrice" class="inv-input" placeholder="السعر د.ع" style="max-width:80px;">
+                    <input type="text" id="invItemExpiry" class="inv-input" placeholder="الإكسباير (2028-12)" style="max-width:120px;">
+                    <input type="text" id="invItemBarcode" class="inv-input" placeholder="الباركود...">
+                    <button class="btn btn-success" id="btnSaveInvManual" style="font-size:11px; padding:6px 12px;">
+                        <i class="fa-solid fa-floppy-disk"></i> حفظ
+                    </button>
+                </div>
+            </div>
+
+            <!-- عمود الفاتورة -->
+            <div class="column-panel">
+                <div style="font-size: 12px; font-weight: bold; color: var(--text-light); flex-shrink: 0;">
+                    <i class="fa-solid fa-file-invoice-dollar"></i> الفاتورة الموحدة وجرعات الصرف
+                </div>
+
+                <div class="invoice-paper" id="invoiceArea">
+                    <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 5px; margin-bottom: 6px;">
+                        <h4 style="margin:0; font-size:13px;">صيدلية دوائي Dwaee الرقمية</h4>
+                        <p style="font-size:10px; margin:3px 0;" id="invMeta">الروشتة الحالية: لا يوجد مريض</p>
+                    </div>
+                    <div id="invoiceContent"></div>
+                    <div class="invoice-doctor-stamp" id="invoiceDoctorStamp"></div>
+                    <hr style="border:none; border-top:1px dashed #000; margin-top:10px;">
+                    <div class="invoice-row" style="font-weight:bold; font-size:12px;">
+                        <span>الصافي الكلي:</span>
+                        <span id="invoiceTotalText">0 د.ع</span>
+                    </div>
+                </div>
+
+                <button class="btn btn-success" id="btnFinalDispense" style="width:100%; flex-shrink:0;">
+                    <i class="fa-solid fa-check-double"></i> ترحيل الفاتورة وتحديث المخزن
+                </button>
+            </div>
+
+        </div><!-- /main-layout -->
+    </div><!-- /app-wrapper -->
+
+    <!-- مودال جرد المخزن -->
+    <div class="force-stock-modal" id="inventoryModal">
+        <div class="stock-modal-content">
+            <div class="stock-modal-header">
+                <h3 style="margin:0; font-size:14px; color:var(--primary-color);">
+                    <i class="fa-solid fa-warehouse"></i> جرد وتحرير مواد المخزن الموحد
+                </h3>
+                <button class="btn btn-danger" id="btnCloseInventoryModal" style="padding:5px 10px; font-size:11px;">
+                    إغلاق ✕
+                </button>
+            </div>
+            <div class="stock-modal-body">
+                <div class="table-wrapper" style="max-height:70vh;">
+                    <table class="verification-table" style="width:100%;">
+                        <thead>
+                            <tr style="background:var(--bg-color);">
+                                <th>اسم الدواء</th>
+                                <th>الشركة</th>
+                                <th>الكمية المتوفرة</th>
+                                <th>السعر الحالي</th>
+                                <th>باركود المادة</th>
+                                <th>تاريخ الإكسباير</th>
+                                <th style="text-align:center; width:170px;">إجراءات التحكم</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalInventoryTableBody">
+                            <tr><td colspan="7" style="text-align:center; padding:25px; color:var(--text-muted);">جاري جلب بيانات المخزن...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, query, where, doc, updateDoc, setDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC_k69WKhgdc_ocykxewWP2Mnr8u_780yU",
+            authDomain: "clinc-app-854a5.firebaseapp.com",
+            projectId: "clinc-app-854a5",
+            storageBucket: "clinc-app-854a5.firebasestorage.app",
+            messagingSenderId: "245805135578",
+            appId: "1:245805135578:web:99ee6cb9a24cae4eb6d7e3"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let loadedPrescriptions = {};
+        let activeRxId = null;
+        let cachedInventory = {};
+        let html5QrCode = null;
+        let isCameraRunning = false;
+
+        // ========== ✅ إصلاح #1: تبديل الثيم ==========
+        const btnTheme = document.getElementById("btnThemeToggle");
+        const themeIcon = document.getElementById("themeIcon");
+        let currentTheme = localStorage.getItem("dwaee_theme") || "dark";
+
+        function applyTheme(theme) {
+            document.documentElement.setAttribute("data-theme", theme);
+            themeIcon.className = theme === "dark" ? "fa-solid fa-sun" : "fa-solid fa-moon";
+            localStorage.setItem("dwaee_theme", theme);
+            currentTheme = theme;
+        }
+
+        applyTheme(currentTheme);
+
+        btnTheme.addEventListener("click", () => {
+            applyTheme(currentTheme === "dark" ? "light" : "dark");
+        });
+
+        // ========== ✅ إصلاح #2: الكاميرا بقارئ باركود حقيقي ==========
+        document.getElementById("btnLaunchCamera").addEventListener("click", async function () {
+
+            const btnText = document.getElementById("cameraBtnText");
+            const activeDot = document.getElementById("cameraActiveDot");
+
+            // إذا الكاميرا شغالة → نوقفها
+            if (isCameraRunning && html5QrCode) {
+                try {
+                    await html5QrCode.stop();
+                    html5QrCode = null;
+                    isCameraRunning = false;
+                    this.style.background = "var(--blue-medical)";
+                    btnText.textContent = "تشغيل الكاميرا";
+                    this.querySelector("i").className = "fa-solid fa-camera";
+                    activeDot.style.display = "none";
+                    // مسح محتوى الحاوية بعد الإيقاف
+                    document.getElementById("cameraStreamContainer").innerHTML = "";
+                } catch(e) {
+                    console.warn("خطأ عند إيقاف الكاميرا:", e);
+                }
+                return;
+            }
+
+            // ✅ التحقق من دعم الكاميرا
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert("🚨 المتصفح لا يدعم الكاميرا. استخدم Chrome أو Edge.");
+                return;
+            }
+
+            try {
+                // ✅ إنشاء نسخة جديدة من Html5Qrcode مع الـ div الصحيح
+                html5QrCode = new Html5Qrcode("cameraStreamContainer");
+
+                const config = {
+                    fps: 15,
+                    qrbox: { width: 90, height: 45 },
+                    aspectRatio: 2.0,
+                    formatsToSupport: [
+                        Html5QrcodeSupportedFormats.EAN_13,
+                        Html5QrcodeSupportedFormats.CODE_128,
+                        Html5QrcodeSupportedFormats.EAN_8,
+                        Html5QrcodeSupportedFormats.CODE_39,
+                        Html5QrcodeSupportedFormats.UPC_A
+                    ],
+                    rememberLastUsedCamera: true,
+                };
+
+                await html5QrCode.start(
+                    { facingMode: "environment" },
+                    config,
+                    (decodedText) => {
+                        // ✅ بمجرد قراءة الباركود: معالجة + صوت بيب
+                        processBarcode(decodedText.trim());
+                        document.getElementById("globalBarcodeField").value = decodedText.trim();
+                    },
+                    (_errorMsg) => { /* تجاهل أخطاء عدم الكشف المستمرة */ }
+                );
+
+                isCameraRunning = true;
+                this.style.background = "var(--primary-color)";
+                btnText.textContent = "إيقاف الكاميرا";
+                this.querySelector("i").className = "fa-solid fa-video";
+                activeDot.style.display = "block";
+
+            } catch (err) {
+                html5QrCode = null;
+                isCameraRunning = false;
+                console.error("خطأ الكاميرا:", err);
+
+                if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+                    alert("🚨 تم رفض صلاحية الكاميرا!\nيرجى السماح للمتصفح باستخدام الكاميرا من إعدادات الموقع.");
+                } else if (err.name === "NotFoundError") {
+                    alert("🚨 لا توجد كاميرا متاحة على هذا الجهاز.");
+                } else {
+                    alert("🚨 خطأ في تشغيل الكاميرا: " + err.message);
+                }
+            }
+        });
+
+        // ========== دالة حساب كلاس الإكسباير ==========
+        function getExpiryClass(expiryStr) {
+            if (!expiryStr || expiryStr === "معلق") return "exp-safe";
+            try {
+                const parts = expiryStr.split('-');
+                const expYear = parseInt(parts[0]);
+                const expMonth = parts[1] ? parseInt(parts[1]) - 1 : 0;
+                const expiryDate = new Date(expYear, expMonth, 1);
+                const today = new Date();
+                today.setDate(1);
+                if (expiryDate < today) return "exp-expired";
+                const diffMonths = Math.ceil(Math.abs(expiryDate - today) / (1000 * 60 * 60 * 24 * 30));
+                if (diffMonths <= 6) return "exp-warning";
+                return "exp-safe";
+            } catch (e) { return "exp-safe"; }
+        }
+
+        // ========== ربط جدول جرد المخزن ==========
+        onSnapshot(collection(db, "inventory"), (snap) => {
+            cachedInventory = {};
+            let modalRowsBuilder = "";
+
+            snap.forEach(d => {
+                const data = d.data();
+                cachedInventory[d.id] = data;
+                const companyText = data.company || "الشركة العامة";
+                let stockColor = data.qty > 5 ? 'var(--primary-color)' : 'var(--warning-color)';
+                if (data.qty <= 0) stockColor = 'var(--danger-color)';
+                const expClass = getExpiryClass(data.expiry);
+                const itemPrice = data.price || 5000;
+
+                modalRowsBuilder += `
+                    <tr>
+                        <td><strong>${data.name}</strong></td>
+                        <td><span style="color:var(--text-muted)">${companyText}</span></td>
+                        <td><span style="color:${stockColor}; font-weight:bold;">${data.qty} علبة</span></td>
+                        <td><span style="color:#3b82f6; font-weight:bold;">${itemPrice.toLocaleString()} د.ع</span></td>
+                        <td><code>${d.id}</code></td>
+                        <td><span class="${expClass}">${data.expiry || '2028-12'}</span></td>
+                        <td style="text-align:center; display:flex; gap:5px; justify-content:center;">
+                            <button class="btn-mini" style="background:var(--warning-color); color:#000;" onclick="window.editInventoryItem('${d.id}', ${data.qty}, ${itemPrice})">
+                                <i class="fa-solid fa-pen-to-square"></i> تعديل
+                            </button>
+                            <button class="btn-mini" style="background:var(--danger-color); color:#fff;" onclick="window.deleteInventoryItem('${d.id}', '${data.name}')">
+                                <i class="fa-solid fa-trash"></i> حذف
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById("modalInventoryTableBody").innerHTML = modalRowsBuilder ||
+                `<tr><td colspan="7" style="text-align:center; padding:25px; color:var(--text-muted);">المخزن فارغ! قم بتعبئة دواء.</td></tr>`;
+
+            if (activeRxId) renderPharmacyDashboard(true);
+        });
+
+        // ========== تعديل وحذف مواد المخزن ==========
+        window.editInventoryItem = async function (barcode, currentQty, currentPrice) {
+            const newQtyStr = prompt(`✏️ تعديل الكمية للباركود [ ${barcode} ]:`, currentQty);
+            if (newQtyStr === null) return;
+            const newPriceStr = prompt(`✏️ تعديل سعر البيع (د.ع):`, currentPrice);
+            if (newPriceStr === null) return;
+            const parsedQty = parseInt(newQtyStr);
+            const parsedPrice = parseInt(newPriceStr);
+            if (isNaN(parsedQty) || isNaN(parsedPrice)) { alert("🚨 أرقام غير صالحة!"); return; }
+            await updateDoc(doc(db, "inventory", barcode), { qty: parsedQty, price: parsedPrice });
+            alert("🎉 تم التحديث بنجاح!");
+        };
+
+        window.deleteInventoryItem = async function (barcode, itemName) {
+            if (confirm(`⚠️ حذف دواء (${itemName}) نهائياً؟`)) {
+                await deleteDoc(doc(db, "inventory", barcode));
+                alert(`🔥 تم حذف المادة [ ${itemName} ] بنجاح.`);
+            }
+        };
+
+        // ========== فتح/إغلاق مودال المخزن ==========
+        document.getElementById("btnOpenInventoryModal").addEventListener("click", () => {
+            document.getElementById("inventoryModal").style.display = "flex";
+        });
+        document.getElementById("btnCloseInventoryModal").addEventListener("click", () => {
+            document.getElementById("inventoryModal").style.display = "none";
+        });
+
+        // ========== حفظ مادة جديدة للمخزن ==========
+        document.getElementById("btnSaveInvManual").addEventListener("click", async function () {
+            const name = document.getElementById("invItemName").value.trim();
+            const company = document.getElementById("invCompany").value.trim() || "الشركة العامة";
+            const qty = parseInt(document.getElementById("invItemQty").value);
+            const price = parseInt(document.getElementById("invItemPrice").value);
+            const expiry = document.getElementById("invItemExpiry").value.trim() || "2028-12";
+            const barcode = document.getElementById("invItemBarcode").value.trim();
+
+            if (!name || isNaN(qty) || isNaN(price) || !barcode) {
+                alert("🚨 يرجى ملء حقول (الاسم، الكمية، السعر، الباركود)!");
+                return;
+            }
+
+            await setDoc(doc(db, "inventory", barcode), { name, company, qty, price, expiry });
+            alert(`🎉 تم حفظ ${name} بنجاح!`);
+
+            ["invItemName","invCompany","invItemQty","invItemPrice","invItemExpiry","invItemBarcode"]
+                .forEach(id => { document.getElementById(id).value = ""; });
+        });
+
+        // ========== الاستماع للروشتات ==========
+        const q = query(collection(db, "prescriptions"), where("status", "==", "pending"));
+        onSnapshot(q, (snapshot) => {
+            const rxQueue = document.getElementById("rxQueue");
+            rxQueue.innerHTML = `
+                <div style="font-size:12px; font-weight:bold; color:var(--blue-medical); border-bottom:1px solid var(--border-color); padding-bottom:6px; flex-shrink:0;">
+                    <i class="fa-solid fa-headset"></i> الروشتات المعلقة لايف
+                </div>
+            `;
+            loadedPrescriptions = {};
+
+            if (snapshot.empty) { clearDashboard(); return; }
+
+            let firstId = null;
+            snapshot.forEach((docSnap) => {
+                loadedPrescriptions[docSnap.id] = docSnap.data();
+                if (!firstId) firstId = docSnap.id;
+
+                const card = document.createElement("div");
+                card.className = `rx-card ${activeRxId === docSnap.id ? 'active' : ''}`;
+                card.id = `rx_${docSnap.id}`;
+                card.innerHTML = `<strong>المريض: ${docSnap.data().name}</strong><br><small style="color:var(--text-muted)">الرقم الطبي: #${docSnap.id.substring(0, 4)}</small>`;
+                card.addEventListener("click", () => {
+                    activeRxId = docSnap.id;
+                    document.querySelectorAll('.rx-card').forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
+                    renderPharmacyDashboard(false);
+                });
+                rxQueue.appendChild(card);
+            });
+
+            if (!activeRxId && firstId) activeRxId = firstId;
+            renderPharmacyDashboard(true);
+        });
+
+        function clearDashboard() {
+            activeRxId = null;
+            document.getElementById("verificationTableBody").innerHTML =
+                `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:30px;">بانتظار روشتة حية من عيادة الطبيب...</td></tr>`;
+            document.getElementById("invoiceContent").innerHTML = "";
+            document.getElementById("invoiceTotalText").innerText = "0 د.ع";
+            document.getElementById("invoiceDoctorStamp").style.display = "none";
+        }
+
+        async function renderPharmacyDashboard(isSilentUpdate = false) {
+            const tbody = document.getElementById("verificationTableBody");
+            const invoiceContent = document.getElementById("invoiceContent");
+            const stampMirror = document.getElementById("invoiceDoctorStamp");
+
+            let currentRx = loadedPrescriptions[activeRxId];
+            if (!currentRx) return;
+
+            if (!isSilentUpdate) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:15px;">جاري المزامنة...</td></tr>`;
+            }
+
+            let htmlBuilder = "";
+            let invoiceBuilder = "";
+            let grandTotal = 0;
+
+            document.getElementById("invMeta").innerText = `المريض: ${currentRx.name} | رقم: #${activeRxId.substring(0, 5)}`;
+
+            if (currentRx.stamped) {
+                stampMirror.innerText = `🔏 مختوم ومصادق من قبل:\n${currentRx.stampText}`;
+                stampMirror.style.display = "block";
+            } else { stampMirror.style.display = "none"; }
+
+            for (let [index, med] of currentRx.meds.entries()) {
+                let dbInfo = cachedInventory[med.barcode] || { price: 5000, expiry: "معلق", qty: 0 };
+                let stockQty = `${dbInfo.qty} علبة`;
+                const expClass = getExpiryClass(dbInfo.expiry);
+
+                if (med.scanned) {
+                    grandTotal += dbInfo.price;
+                    htmlBuilder += `
+                        <tr class="item-row scanned" onclick="window.toggleMedScan(${index})">
+                            <td><strong>${med.name}</strong></td>
+                            <td><span style="color:var(--primary-color); font-weight:bold;"><i class="fa-solid fa-boxes-stacked"></i> ${stockQty}</span></td>
+                            <td><code>[${med.barcode}]</code></td>
+                            <td><span class="${expClass}">${dbInfo.expiry}</span></td>
+                            <td>${dbInfo.price.toLocaleString()} د.ع</td>
+                            <td><span class="status-badge badge-success"><i class="fa-solid fa-circle-check"></i> طوبق جاهز</span></td>
+                        </tr>`;
+                    invoiceBuilder += `<div class="invoice-row"><span>${med.name}</span><span>${dbInfo.price.toLocaleString()} د.ع</span></div>`;
+                } else {
+                    htmlBuilder += `
+                        <tr class="item-row" onclick="window.toggleMedScan(${index})">
+                            <td><strong>${med.name}</strong></td>
+                            <td><span style="color:var(--text-muted)">${stockQty}</span></td>
+                            <td><code>${med.barcode}</code></td>
+                            <td><span class="${expClass}">${dbInfo.expiry}</span></td>
+                            <td>0 د.ع</td>
+                            <td><span class="status-badge badge-waiting"><i class="fa-solid fa-hand-pointer"></i> اضغط للمطابقة</span></td>
+                        </tr>`;
+                }
+            }
+
+            tbody.innerHTML = htmlBuilder;
+            invoiceContent.innerHTML = invoiceBuilder;
+            document.getElementById("invoiceTotalText").innerText = grandTotal.toLocaleString() + " د.ع";
+        }
+
+        window.toggleMedScan = function (index) {
+            let currentRx = loadedPrescriptions[activeRxId];
+            if (!currentRx) return;
+            currentRx.meds[index].scanned = !currentRx.meds[index].scanned;
+            playCashierBeep();
+            renderPharmacyDashboard(true);
+            updateDoc(doc(db, "prescriptions", activeRxId), { meds: currentRx.meds }).catch(err => console.warn(err));
+        };
+
+        // ========== مدخل الباركود من لوحة المفاتيح ==========
+        document.getElementById("globalBarcodeField").addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                processBarcode(e.target.value.trim());
+                e.target.value = "";
+            }
+        });
+
+        function processBarcode(code) {
+            if (!code) return;
+            let currentRx = loadedPrescriptions[activeRxId];
+            if (!currentRx) return;
+            let found = false;
+            currentRx.meds.forEach(med => {
+                if (med.barcode === code && !med.scanned) { med.scanned = true; found = true; }
+            });
+            if (found) {
+                playCashierBeep();
+                renderPharmacyDashboard(true);
+                updateDoc(doc(db, "prescriptions", activeRxId), { meds: currentRx.meds }).catch(err => console.warn(err));
+            }
+            document.getElementById("invItemBarcode").value = code;
+        }
+
+        function playCashierBeep() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1050, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.08);
+            } catch (e) { /* تجاهل خطأ الصوت */ }
+        }
+
+        // ========== ترحيل الفاتورة ==========
+        document.getElementById("btnFinalDispense").addEventListener("click", async function () {
+            if (!activeRxId || !loadedPrescriptions[activeRxId]) return;
+            let currentRx = loadedPrescriptions[activeRxId];
+            if (!currentRx.meds.every(m => m.scanned)) {
+                alert("🚨 لا يمكن الترحيل: هناك مواد لم تُطابَق بعد!");
+                return;
+            }
+            if (!confirm("⚠️ هل تريد ترحيل الفاتورة وتحديث المخزن؟")) return;
+
+            for (let med of currentRx.meds) {
+                const invRef = doc(db, "inventory", med.barcode);
+                const invDoc = await getDoc(invRef);
+                if (invDoc.exists()) {
+                    const newQty = Math.max(0, invDoc.data().qty - 1);
+                    await updateDoc(invRef, { qty: newQty });
+                }
+            }
+            await updateDoc(doc(db, "prescriptions", activeRxId), { status: "dispensed" });
+            alert("✅ تم الترحيل وقفل التنزيل بنجاح!");
+        });
+
+    </script>
+</body>
+</html>
