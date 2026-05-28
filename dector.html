@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>منظومة دوائي - لوحة الطبيب</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* ===== ثيم ===== */
+        :root,[data-theme="dark"]{
+            --bg:#0f172a;--card:#1e293b;--bar:#020617;
+            --accent:#00adb5;--text:#f0f4f8;--muted:#94a3b8;
+            --border:#334155;--input:#1e293b;
+            --green:#2ecc71;--blue:#3b82f6;--red:#ef4444;--warn:#f59e0b;
+        }
+        [data-theme="light"]{
+            --bg:#f0f4f8;--card:#fff;--bar:#e2e8f0;
+            --accent:#2980b9;--text:#1a2535;--muted:#64748b;
+            --border:#dde3ea;--input:#f8fafc;
+            --green:#16a34a;--blue:#2563eb;--red:#dc2626;--warn:#d97706;
+        }
+        *{box-sizing:border-box;margin:0;padding:0;font-family:'Cairo',sans-serif;}
+
+        /* ===== قفل أفقي ===== */
+        html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);transition:background .3s,color .3s;}
+
+        /* ===== تحذير عمودي ===== */
+        #rw{display:none;position:fixed;inset:0;background:#050c1a;z-index:9999999;
+            flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#fff;text-align:center;padding:30px;}
+        #rw i{font-size:56px;color:#00adb5;animation:sp 1.4s ease-in-out infinite alternate;}
+        @keyframes sp{from{transform:rotate(0)}to{transform:rotate(90deg)}}
+        #rw h2{font-size:20px;}#rw p{font-size:13px;color:#555;}
+        @media(orientation:portrait){#rw{display:flex}#app{display:none!important}}
+        @media(orientation:landscape){#rw{display:none}#app{display:flex}}
+
+        /* ===== هيكل ===== */
+        #app{flex-direction:column;width:100vw;height:100vh;overflow:hidden;}
+
+        /* ===== هيدر ===== */
+        header{display:flex;justify-content:space-between;align-items:center;
+            padding:0 12px;background:var(--bar);border-bottom:1px solid var(--border);
+            height:52px;flex-shrink:0;gap:8px;z-index:300;}
+        .hl,.hr{display:flex;align-items:center;gap:8px;}
+
+        /* ===== مفتاح الثيم ===== */
+        .sw-wrap{display:flex;align-items:center;gap:5px;}
+        .sw-lbl{font-size:11px;color:var(--muted);}
+        .sw{position:relative;width:46px;height:22px;display:inline-block;}
+        .sw input{opacity:0;width:0;height:0;}
+        .sl{position:absolute;inset:0;cursor:pointer;background:#1e293b;border:2px solid #334155;border-radius:34px;transition:.3s;}
+        .sl:before{content:"";position:absolute;width:14px;height:14px;left:2px;bottom:2px;background:var(--accent);border-radius:50%;transition:.3s;}
+        input:checked+.sl{background:#dce8f5;border-color:#b0c8e0;}
+        input:checked+.sl:before{transform:translateX(24px);background:var(--blue);}
+
+        /* ===== زر أيقونة ===== */
+        .ibtn{background:none;border:1.5px solid var(--border);color:var(--text);
+            width:32px;height:32px;border-radius:7px;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;font-size:14px;transition:.2s;}
+        .ibtn:hover{border-color:var(--accent);color:var(--accent);}
+
+        /* ===== درب داون الإعدادات ===== */
+        .sdrop-wrap{position:relative;}
+        .sdrop{display:none;position:absolute;top:38px;left:0;
+            background:var(--card);border:1px solid var(--border);border-radius:10px;
+            padding:14px;width:260px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:600;}
+        .sdrop.open{display:block;}
+        .dlbl{font-size:10px;font-weight:700;color:var(--muted);display:block;margin-bottom:3px;}
+
+        /* ===== أزرار ===== */
+        .btn{padding:6px 12px;border-radius:7px;border:none;cursor:pointer;
+            font-family:'Cairo',sans-serif;font-weight:700;font-size:11px;
+            display:inline-flex;align-items:center;gap:5px;transition:opacity .2s;}
+        .btn:active{opacity:.75;}
+        .bg{background:var(--green);color:#fff;}
+        .bb{background:var(--blue);color:#fff;}
+        .br{background:var(--red);color:#fff;}
+        .bw{background:var(--warn);color:#000;}
+        .ba{background:var(--accent);color:#fff;}
+        .bo{background:transparent;border:1px solid var(--border);color:var(--text);}
+
+        input[type="text"],select,textarea{
+            width:100%;background:var(--input);border:1px solid var(--border);
+            color:var(--text);padding:7px 9px;border-radius:7px;
+            font-family:'Cairo',sans-serif;font-size:12px;outline:none;resize:none;transition:.2s;}
+        input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+
+        /* ===== تخطيط ===== */
+        .body{display:grid;grid-template-columns:195px 1fr 210px;
+            gap:9px;padding:9px;height:calc(100vh - 52px);overflow:hidden;}
+        .col{display:flex;flex-direction:column;gap:9px;overflow:hidden;}
+        .card{background:var(--card);border:1px solid var(--border);border-radius:10px;
+            padding:10px;display:flex;flex-direction:column;gap:7px;transition:background .3s;}
+        .ctit{font-size:11px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:5px;}
+
+        /* ===== طابور ===== */
+        .stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex-shrink:0;}
+        .stat{background:var(--input);border:1px solid var(--border);border-radius:8px;padding:7px;text-align:center;}
+        .snum{font-size:19px;font-weight:700;color:var(--accent);}
+        .slbl{font-size:9px;color:var(--muted);}
+        .plist{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:5px;}
+        .pitem{background:var(--input);border:1px solid var(--border);border-right:3px solid transparent;
+            border-radius:8px;padding:8px 9px;cursor:pointer;transition:.2s;}
+        .pitem:hover{border-right-color:var(--accent);}
+        .pitem.active{border-right-color:var(--accent);background:rgba(0,173,181,.1);}
+        .pn{font-size:12px;font-weight:700;}
+        .pm{font-size:10px;color:var(--muted);display:flex;justify-content:space-between;margin-top:2px;}
+
+        /* ===== وسط ===== */
+        .rxcard{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:7px;}
+        .acol{display:flex;flex-direction:column;gap:6px;flex-shrink:0;}
+        .abtn{width:100%;padding:9px;font-size:12px;}
+
+        /* ===== يمين (فحوصات) ===== */
+        .rcol{overflow-y:auto;}
+        .cklbl{display:flex;align-items:center;gap:7px;font-size:11px;padding:4px 0;cursor:pointer;}
+        .cklbl input{accent-color:var(--accent);width:13px;height:13px;}
+
+        /* ===== زر إضافة تحليل/أشعة ===== */
+        .add-row{display:flex;gap:5px;margin-top:3px;}
+        .add-row input{height:28px;font-size:11px;}
+        .add-row button{flex-shrink:0;padding:5px 9px;font-size:11px;}
+
+        /* ===== مودال العلاجات ===== */
+        .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);
+            z-index:9999;align-items:center;justify-content:center;padding:8px;}
+        .overlay.open{display:flex;}
+        .modal{background:var(--card);border:1px solid var(--border);border-radius:14px;
+            width:98%;max-width:680px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;
+            box-shadow:0 12px 40px rgba(0,0,0,.55);}
+        .mhead{padding:11px 14px;background:var(--bar);border-bottom:1px solid var(--border);
+            display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+        .mbody{padding:12px;overflow-y:auto;flex:1;}
+        .mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:9px;margin-bottom:12px;}
+        .mcard{background:var(--input);border:1px solid var(--border);border-radius:10px;
+            padding:9px;text-align:center;cursor:pointer;transition:.2s;}
+        .mcard:hover{border-color:var(--accent);transform:translateY(-2px);}
+        .mcard img{width:52px;height:52px;object-fit:cover;border-radius:7px;margin-bottom:5px;border:1px solid var(--border);}
+        .micon{font-size:36px;margin-bottom:5px;display:block;}
+        .mname{font-size:10px;font-weight:700;display:block;margin-bottom:1px;}
+        .mcat{font-size:9px;color:var(--muted);display:block;}
+        .macts{display:flex;justify-content:center;gap:4px;margin-top:7px;}
+        .madd{background:rgba(46,204,113,.15);border:1px solid var(--green);color:var(--green);
+            border-radius:5px;padding:3px 7px;font-size:9px;cursor:pointer;font-weight:700;}
+        .mdel{background:rgba(239,68,68,.12);border:1px solid var(--red);color:var(--red);
+            border-radius:5px;padding:3px 6px;font-size:9px;cursor:pointer;}
+        .addform{background:var(--bg);border:1px dashed var(--border);border-radius:9px;
+            padding:10px;display:flex;flex-wrap:wrap;gap:7px;align-items:center;}
+        .thumb{width:44px;height:44px;border-radius:7px;object-fit:cover;
+            border:1px solid var(--border);display:none;}
+
+        /* ===== ختم الروشتة داخل الـ textarea ===== */
+        /* الختم يُعرض في div مستقل أسفل الـ textarea */
+        .rx-wrap{flex:1;display:flex;flex-direction:column;gap:0;overflow:hidden;}
+        .rx-wrap textarea{flex:1;border-radius:7px 7px 0 0;border-bottom:none;}
+        .stamp-preview{
+            background:#fff;color:#000;
+            border:1px solid var(--border);border-top:1px dashed #aaa;
+            border-radius:0 0 7px 7px;
+            padding:8px 12px;
+            display:flex;justify-content:flex-end;align-items:center;
+            min-height:54px;flex-shrink:0;
+        }
+        /* الختم الدائري */
+        .stamp-classic{
+            border:3px solid #124e78;color:#124e78;
+            border-radius:50%;width:80px;height:80px;
+            display:flex;flex-direction:column;align-items:center;justify-content:center;
+            font-size:8px;font-weight:700;text-align:center;padding:5px;
+            transform:rotate(-5deg);background:rgba(18,78,120,.03);
+            line-height:1.3;
+        }
+        /* الختم المستطيل */
+        .stamp-modern{
+            border:2px dashed #d32f2f;color:#d32f2f;
+            padding:7px 14px;
+            display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+            font-size:10px;font-weight:700;text-align:center;
+            transform:rotate(2deg);background:rgba(211,47,47,.02);
+            border-radius:4px;line-height:1.4;
+        }
+        .stamp-sub{font-size:8px;font-weight:400;margin-top:2px;opacity:.7;}
+
+        /* ===== Scrollbar ===== */
+        ::-webkit-scrollbar{width:4px;height:4px;}
+        ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
+        /* ===== توست ===== */
+        .toast{position:fixed;bottom:14px;left:14px;background:var(--red);color:#fff;
+            padding:9px 18px;border-radius:8px;font-size:11px;font-weight:700;
+            z-index:8000;display:none;box-shadow:0 4px 14px rgba(0,0,0,.3);}
+        .toast.ok{background:var(--green);}
+    </style>
+</head>
+<body>
+
+<div id="rw">
+    <i class="fa-solid fa-rotate"></i>
+    <h2>يرجى تدوير الجهاز أفقياً</h2>
+    <p>لوحة الطبيب تعمل بالوضع الأفقي فقط</p>
+</div>
+
+<div id="app">
+
+<!-- ===== هيدر ===== -->
+<header>
+    <div class="hr">
+        <!-- طابور المرضى مدمج في العمود الأيسر — الزر هنا للعرض فقط -->
+        <span style="font-size:12px;font-weight:700;color:var(--accent);">
+            <i class="fa-solid fa-hospital"></i> منظومة دوائي — لوحة الطبيب
+        </span>
+        <input type="text" id="searchInput" placeholder="بحث في طابور المرضى..." style="width:200px;height:32px;font-size:11px;">
+    </div>
+    <div class="hl">
+        <!-- ✅ زر الختم (أيقونة ختم حقيقية) -->
+        <div class="sdrop-wrap">
+            <button class="ibtn" id="btnStamp" title="إعدادات الختم">
+                <i class="fa-solid fa-stamp"></i>
+            </button>
+            <div class="sdrop" id="stampDrop">
+                <strong style="font-size:11px;display:block;margin-bottom:10px;color:var(--accent);">
+                    <i class="fa-solid fa-stamp"></i> إعدادات الختم الطبي
+                </strong>
+                <label class="dlbl">شكل الختم:</label>
+                <select id="stampShape" style="height:30px;margin-bottom:8px;font-size:11px;">
+                    <option value="classic">🔵 دائري كلاسيك أزرق</option>
+                    <option value="modern">🔴 مستطيل حديث أحمر</option>
+                </select>
+                <label class="dlbl">نص السطر الأول:</label>
+                <input type="text" id="stampLine1" value="د. مصطفى أحمد" style="height:30px;font-size:11px;margin-bottom:6px;">
+                <label class="dlbl">نص السطر الثاني:</label>
+                <input type="text" id="stampLine2" value="العيادة الاستشارية التخصصية" style="height:30px;font-size:11px;margin-bottom:8px;">
+                <button class="btn ba" id="btnApplyStamp" style="width:100%;">
+                    <i class="fa-solid fa-stamp"></i> تطبيق الختم على الروشتة
+                </button>
+            </div>
+        </div>
+
+        <!-- ✅ مفتاح الثيم -->
+        <div class="sw-wrap">
+            <span class="sw-lbl">🌙</span>
+            <label class="sw">
+                <input type="checkbox" id="themeToggle">
+                <span class="sl"></span>
+            </label>
+            <span class="sw-lbl">☀️</span>
+        </div>
+    </div>
+</header>
+
+<!-- ===== جسم التطبيق ===== -->
+<div class="body">
+
+    <!-- عمود الطابور -->
+    <div class="col">
+        <div class="card" style="flex:1;overflow:hidden;">
+            <div class="ctit"><i class="fa-solid fa-calendar-check"></i> طابور الحجز اليومي</div>
+            <div class="stats">
+                <div class="stat"><div class="snum" id="statW">0</div><div class="slbl">انتظار</div></div>
+                <div class="stat"><div class="snum" id="statD" style="color:var(--green)">0</div><div class="slbl">معاينة</div></div>
+            </div>
+            <!-- ✅ الطابور يأتي من Firebase (السكرتير) -->
+            <div class="plist" id="patientList">
+                <div style="text-align:center;color:var(--muted);font-size:11px;padding:20px;">
+                    <i class="fa-solid fa-spinner fa-spin"></i><br>بانتظار بيانات السكرتير...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- عمود الوسط -->
+    <div class="col">
+        <!-- تشخيص -->
+        <div class="card" style="flex-shrink:0;">
+            <div class="ctit"><i class="fa-solid fa-stethoscope"></i> العيادة الاستشارية</div>
+            <div style="font-size:10px;color:var(--muted);">
+                المريض: <strong id="curName" style="color:var(--accent);font-size:12px;">لم يُختر بعد</strong>
+            </div>
+            <textarea id="diagnosis" style="min-height:50px;max-height:70px;"
+                placeholder="التشخيص والملاحظات السريرية..."></textarea>
+        </div>
+
+        <!-- روشتة -->
+        <div class="card rxcard">
+            <div class="ctit"><i class="fa-solid fa-prescription"></i> الروشتة الإلكترونية</div>
+
+            <button class="btn bw" id="btnMedModal" style="align-self:flex-start;font-size:11px;">
+                <i class="fa-solid fa-pills"></i> قائمة العلاجات الموصى بها
+            </button>
+
+            <!-- ✅ الروشتة + الختم ملتصقَين -->
+            <div class="rx-wrap">
+                <textarea id="prescription"
+                    style="font-family:monospace;font-size:13px;line-height:1.7;"
+                    placeholder="اكتب العلاجات هنا سطر بسطر...&#10;Amoxicillin 500mg - 1x3&#10;Paracetamol 500mg - 1x2"></textarea>
+                <div class="stamp-preview" id="stampPreview" style="display:none;">
+                    <div id="stampEl"></div>
+                </div>
+            </div>
+
+            <div class="acol">
+                <button class="btn bg abtn" id="btnSend">
+                    <i class="fa-solid fa-paper-plane"></i> إرسال للصيدلية لايف
+                </button>
+                <button class="btn bb abtn" id="btnPrint">
+                    <i class="fa-solid fa-print"></i> طباعة الوصفة مختومة
+                </button>
+                <button class="btn" style="background:#6b7280;color:#fff;" id="btnReport">
+                    <i class="fa-solid fa-file-medical"></i> طباعة التقرير A4
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- عمود الفحوصات -->
+    <div class="col rcol">
+
+        <!-- فحوصات -->
+        <div class="card">
+            <div class="ctit"><i class="fa-solid fa-flask"></i> الفحوصات المختبرية</div>
+            <label class="cklbl"><input type="checkbox" id="cbc"> CBC صورة الدم</label>
+            <label class="cklbl"><input type="checkbox" id="urea"> Urea / Creatinine</label>
+            <label class="cklbl"><input type="checkbox" id="hba1c"> HbA1c السكر التراكمي</label>
+            <div id="extraLabsList" style="display:flex;flex-direction:column;gap:3px;"></div>
+            <!-- ✅ زر إضافة تحليل -->
+            <div class="add-row">
+                <input type="text" id="newLabInput" placeholder="تحليل إضافي...">
+                <button class="btn bg" id="btnAddLab"><i class="fa-solid fa-plus"></i></button>
+            </div>
+        </div>
+
+        <!-- أشعة -->
+        <div class="card">
+            <div class="ctit"><i class="fa-solid fa-x-ray"></i> الأشعة والسونار</div>
+            <label class="cklbl"><input type="checkbox" id="xray"> Chest X-Ray</label>
+            <label class="cklbl"><input type="checkbox" id="sonar"> Abdominal Sonar</label>
+            <div id="extraRadList" style="display:flex;flex-direction:column;gap:3px;"></div>
+            <!-- ✅ زر إضافة أشعة -->
+            <div class="add-row">
+                <input type="text" id="newRadInput" placeholder="فحص إضافي...">
+                <button class="btn bb" id="btnAddRad"><i class="fa-solid fa-plus"></i></button>
+            </div>
+        </div>
+
+    </div>
+
+</div><!-- /body -->
+</div><!-- /app -->
+
+<!-- ===== مودال العلاجات ===== -->
+<div class="overlay" id="medOverlay">
+    <div class="modal">
+        <div class="mhead">
+            <span style="font-size:12px;font-weight:700;color:var(--accent);">
+                <i class="fa-solid fa-pills"></i> قائمة العلاجات الموصى بها
+            </span>
+            <button class="btn bo" id="btnCloseMed" style="font-size:10px;padding:4px 9px;">إغلاق ✕</button>
+        </div>
+        <div class="mbody">
+            <div class="mgrid" id="medGrid"></div>
+            <div class="addform">
+                <span style="font-size:10px;font-weight:700;color:var(--warn);white-space:nowrap;">
+                    <i class="fa-solid fa-plus-circle"></i> علاج جديد:
+                </span>
+                <input type="text" id="newMedName" placeholder="اسم العلاج والجرعة..." style="flex:1;height:32px;min-width:130px;">
+                <input type="text" id="newMedCat"  placeholder="التصنيف (مسكن...)"    style="flex:1;height:32px;min-width:100px;">
+                <input type="file" id="medImg" accept="image/*" style="display:none;">
+                <img id="medThumb" class="thumb" src="" alt="">
+                <button class="btn bo" id="btnPickImg" style="font-size:10px;"><i class="fa-solid fa-camera"></i> صورة</button>
+                <button class="btn bg"  id="btnAddMed" style="font-size:10px;"><i class="fa-solid fa-floppy-disk"></i> حفظ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import {
+    initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+    collection, onSnapshot, query, where, doc, setDoc, updateDoc
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+const cfg = {
+    apiKey:"AIzaSyC_k69WKhgdc_ocykxewWP2Mnr8u_780yU",
+    authDomain:"clinc-app-854a5.firebaseapp.com",
+    projectId:"clinc-app-854a5",
+    storageBucket:"clinc-app-854a5.firebasestorage.app",
+    messagingSenderId:"245805135578",
+    appId:"1:245805135578:web:99ee6cb9a24cae4eb6d7e3"
+};
+const app = initializeApp(cfg);
+const db  = initializeFirestore(app,{
+    localCache: persistentLocalCache({tabManager:persistentMultipleTabManager()})
+});
+
+// ===== ثيم =====
+const tog = document.getElementById("themeToggle");
+const th  = localStorage.getItem("dwaee_doc_th") || "dark";
+if(th==="light"){ document.documentElement.setAttribute("data-theme","light"); tog.checked=true; }
+tog.addEventListener("change",function(){
+    const t = this.checked?"light":"dark";
+    document.documentElement.setAttribute("data-theme",t);
+    localStorage.setItem("dwaee_doc_th",t);
+});
+
+// ===== درب داون الختم =====
+const stampBtn  = document.getElementById("btnStamp");
+const stampDrop = document.getElementById("stampDrop");
+stampBtn.addEventListener("click",e=>{e.stopPropagation();stampDrop.classList.toggle("open");});
+document.addEventListener("click",()=>stampDrop.classList.remove("open"));
+stampDrop.addEventListener("click",e=>e.stopPropagation());
+
+// ===== منطق الختم =====
+let stampApplied = false;
+
+function buildStampEl(){
+    const shape = document.getElementById("stampShape").value;
+    const l1    = document.getElementById("stampLine1").value;
+    const l2    = document.getElementById("stampLine2").value;
+    const el    = document.getElementById("stampEl");
+    if(shape==="classic"){
+        el.className = "stamp-classic";
+        el.innerHTML = `${l1}<span class="stamp-sub">${l2}</span><span class="stamp-sub">مصدق إلكترونياً</span>`;
+    } else {
+        el.className = "stamp-modern";
+        el.innerHTML = `${l1}<span class="stamp-sub">${l2}</span><span class="stamp-sub">مصدق إلكترونياً</span>`;
+    }
+}
+
+// ✅ زر "تطبيق الختم" يختم أسفل الروشتة مباشرة
+document.getElementById("btnApplyStamp").addEventListener("click",()=>{
+    buildStampEl();
+    document.getElementById("stampPreview").style.display = "flex";
+    stampApplied = true;
+    stampDrop.classList.remove("open");
+    showToast("✅ تم وضع الختم أسفل الروشتة","ok");
+});
+
+// ===== بحث في الطابور =====
+document.getElementById("searchInput").addEventListener("input",function(){
+    const val = this.value.trim().toLowerCase();
+    document.querySelectorAll(".pitem").forEach(p=>{
+        const name = p.querySelector(".pn").textContent.toLowerCase();
+        p.style.display = name.includes(val) ? "" : "none";
+    });
+});
+
+// ===== ✅ طابور المرضى من Firebase (السكرتير) =====
+let activePatientId = null;
+let doneCount = 0;
+
+const queueQuery = query(collection(db,"appointments"), where("status","==","waiting"));
+onSnapshot(queueQuery, snap => {
+    const list = document.getElementById("patientList");
+    list.innerHTML = "";
+
+    if(snap.empty){
+        list.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:11px;padding:20px;">
+            <i class="fa-solid fa-user-clock"></i><br>لا يوجد مرضى في الانتظار</div>`;
+        document.getElementById("statW").textContent = 0;
+        return;
+    }
+
+    let waitCount = 0;
+    snap.forEach(d=>{
+        const data = d.data();
+        waitCount++;
+        const div = document.createElement("div");
+        div.className = `pitem${activePatientId===d.id?" active":""}`;
+        div.dataset.id = d.id;
+        div.innerHTML = `
+            <div class="pn">${data.name||"مريض"}</div>
+            <div class="pm">
+                <span>${data.time||""}</span>
+                <span style="color:${data.type==="urgent"?"var(--red)":data.type==="review"?"var(--blue)":"var(--green)"}">
+                    ${data.type==="urgent"?"طارئة":data.type==="review"?"مراجعة":"كشف"}
+                </span>
+            </div>`;
+        div.addEventListener("click",()=>{
+            document.querySelectorAll(".pitem").forEach(i=>i.classList.remove("active"));
+            div.classList.add("active");
+            activePatientId = d.id;
+            document.getElementById("curName").textContent = data.name||"مريض";
+            document.getElementById("diagnosis").value    = data.lastDiagnosis||"";
+            document.getElementById("prescription").value = data.lastRx||"";
+            document.getElementById("stampPreview").style.display="none";
+            stampApplied = false;
+        });
+        list.appendChild(div);
+    });
+    document.getElementById("statW").textContent = waitCount;
+    document.getElementById("statD").textContent = doneCount;
+});
+
+// ===== ✅ إضافة تحليل/أشعة ديناميكي =====
+function addExtraItem(inputId, listId, color){
+    const inp  = document.getElementById(inputId);
+    const val  = inp.value.trim();
+    if(!val) return;
+    const list = document.getElementById(listId);
+    const lbl  = document.createElement("label");
+    lbl.className = "cklbl";
+    const cb = document.createElement("input");
+    cb.type  = "checkbox";
+    cb.checked = true;
+    cb.style.accentColor = color;
+    lbl.appendChild(cb);
+    lbl.appendChild(document.createTextNode(" "+val));
+    list.appendChild(lbl);
+    inp.value = "";
+}
+
+document.getElementById("btnAddLab").addEventListener("click",()=>
+    addExtraItem("newLabInput","extraLabsList","var(--green)"));
+document.getElementById("newLabInput").addEventListener("keydown",e=>{
+    if(e.key==="Enter") addExtraItem("newLabInput","extraLabsList","var(--green)");
+});
+
+document.getElementById("btnAddRad").addEventListener("click",()=>
+    addExtraItem("newRadInput","extraRadList","var(--blue)"));
+document.getElementById("newRadInput").addEventListener("keydown",e=>{
+    if(e.key==="Enter") addExtraItem("newRadInput","extraRadList","var(--blue)");
+});
+
+// ===== قائمة الأدوية =====
+let meds = JSON.parse(localStorage.getItem("dwaee_meds2")||"null")||[
+    {id:1,name:"Amoxicillin 500mg - 1x3",cat:"مضاد حيوي",img:""},
+    {id:2,name:"Paracetamol 500mg - 1x2",cat:"مسكن ألم",img:""}
+];
+const saveMeds = ()=> localStorage.setItem("dwaee_meds2",JSON.stringify(meds));
+
+function renderMeds(){
+    const grid = document.getElementById("medGrid");
+    grid.innerHTML = "";
+    meds.forEach(m=>{
+        const c = document.createElement("div");
+        c.className="mcard";
+        c.innerHTML=`
+            ${m.img?`<img src="${m.img}" alt="${m.name}">`:`<span class="micon">💊</span>`}
+            <span class="mname">${m.name}</span>
+            <span class="mcat">${m.cat||""}</span>
+            <div class="macts">
+                <button class="madd" data-name="${m.name}">➕ للروشتة</button>
+                <button class="mdel" data-id="${m.id}">🗑️</button>
+            </div>`;
+        c.querySelector(".madd").addEventListener("click",e=>{
+            e.stopPropagation();
+            const rx = document.getElementById("prescription");
+            rx.value += (rx.value&&!rx.value.endsWith("\n")?"\n":"")+m.name+"\n";
+        });
+        c.querySelector(".mdel").addEventListener("click",e=>{
+            e.stopPropagation();
+            meds=meds.filter(x=>x.id!==m.id);
+            saveMeds();renderMeds();
+        });
+        grid.appendChild(c);
+    });
+}
+
+document.getElementById("btnMedModal").addEventListener("click",()=>
+    document.getElementById("medOverlay").classList.add("open"));
+document.getElementById("btnCloseMed").addEventListener("click",()=>
+    document.getElementById("medOverlay").classList.remove("open"));
+document.getElementById("medOverlay").addEventListener("click",function(e){
+    if(e.target===this) this.classList.remove("open");
+});
+
+let newImgB64="";
+document.getElementById("btnPickImg").addEventListener("click",()=>
+    document.getElementById("medImg").click());
+document.getElementById("medImg").addEventListener("change",function(){
+    const f=this.files[0]; if(!f)return;
+    const r=new FileReader();
+    r.onload=e=>{
+        newImgB64=e.target.result;
+        const th=document.getElementById("medThumb");
+        th.src=newImgB64;th.style.display="block";
+    };
+    r.readAsDataURL(f);
+});
+document.getElementById("btnAddMed").addEventListener("click",()=>{
+    const name=document.getElementById("newMedName").value.trim();
+    const cat =document.getElementById("newMedCat").value.trim();
+    if(!name){alert("🚨 أدخل اسم العلاج!");return;}
+    meds.push({id:Date.now(),name,cat,img:newImgB64});
+    saveMeds();renderMeds();
+    document.getElementById("newMedName").value="";
+    document.getElementById("newMedCat").value="";
+    document.getElementById("medThumb").style.display="none";
+    newImgB64=""; document.getElementById("medImg").value="";
+});
+renderMeds();
+
+// ===== إرسال الوصفة =====
+document.getElementById("btnSend").addEventListener("click",async()=>{
+    const name = document.getElementById("curName").textContent;
+    const diag = document.getElementById("diagnosis").value;
+    const rx   = document.getElementById("prescription").value;
+    if(name==="لم يُختر بعد"){showToast("🚨 اختر مريضاً أولاً!");return;}
+    if(!rx.trim()){showToast("🚨 الروشتة فارغة!");return;}
+
+    const medsArr = rx.trim().split("\n").filter(l=>l.trim())
+        .map(l=>({name:l.trim(),barcode:"manual",scanned:false}));
+
+    const stampTxt = stampApplied
+        ? `${document.getElementById("stampLine1").value} — ${document.getElementById("stampLine2").value}`
+        : "";
+
+    try{
+        await setDoc(doc(db,"prescriptions",`${activePatientId||Date.now()}`),{
+            name, diagnosis:diag, meds:medsArr,
+            status:"pending",
+            stamped: stampApplied,
+            stampText: stampTxt,
+            timestamp:new Date().toISOString()
+        });
+        // تحديث حالة المريض إلى "تمت المعاينة"
+        if(activePatientId){
+            await updateDoc(doc(db,"appointments",activePatientId),{status:"done"});
+            doneCount++;
+        }
+        showToast("✅ تم الإرسال للصيدلية بنجاح!","ok");
+    }catch(e){showToast("⚠️ خطأ: "+e.message);}
+});
+
+// ===== طباعة الروشتة =====
+document.getElementById("btnPrint").addEventListener("click",()=>{
+    const name      = document.getElementById("curName").textContent;
+    const rx        = document.getElementById("prescription").value;
+    const diag      = document.getElementById("diagnosis").value;
+    const shape     = document.getElementById("stampShape").value;
+    const l1        = document.getElementById("stampLine1").value;
+    const l2        = document.getElementById("stampLine2").value;
+
+    const stampHtml = stampApplied ? (shape==="classic"
+        ? `<div style="border:3px solid #124e78;color:#124e78;border-radius:50%;width:100px;height:100px;
+              display:flex;flex-direction:column;align-items:center;justify-content:center;
+              font-size:9px;font-weight:700;text-align:center;padding:6px;transform:rotate(-5deg);">
+              ${l1}<span style="font-size:8px;font-weight:400;margin-top:2px;">${l2}</span>
+              <span style="font-size:7px;opacity:.7">مصدق إلكترونياً</span></div>`
+        : `<div style="border:2px dashed #d32f2f;color:#d32f2f;padding:8px 16px;
+              display:inline-flex;flex-direction:column;align-items:center;
+              font-size:11px;font-weight:700;transform:rotate(2deg);border-radius:4px;">
+              ${l1}<span style="font-size:9px;font-weight:400;margin-top:1px;">${l2}</span>
+              <span style="font-size:8px;opacity:.7">مصدق إلكترونياً</span></div>`)
+        : "";
+
+    const pw = window.open("","_blank");
+    pw.document.write(`<html><head><title>روشتة</title>
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+        <style>
+            @page{size:A5;margin:12mm;}
+            *{font-family:'Cairo',sans-serif;}
+            body{direction:rtl;display:flex;flex-direction:column;min-height:90vh;color:#000;background:#fff;}
+            .hdr{text-align:center;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:12px;}
+            .sec{font-size:13px;font-weight:700;margin-bottom:5px;}
+            .rxb{font-family:monospace;font-size:15px;white-space:pre-line;background:#fafafa;
+                padding:12px;border:1px dashed #555;min-height:160px;}
+            .foot{margin-top:auto;display:flex;justify-content:flex-end;page-break-inside:avoid;padding-top:14px;}
+        </style></head><body>
+        <div class="hdr"><h3 style="margin:0">الروشتة الطبية الإلكترونية</h3></div>
+        <div class="sec">المريض: <span style="font-weight:400">${name}</span></div>
+        <div class="sec">التشخيص: <span style="font-weight:400">${diag||"مستقر"}</span></div>
+        <div class="sec" style="margin-top:8px">Rx — العلاجات:</div>
+        <div class="rxb">${rx||"—"}</div>
+        <div class="foot">${stampHtml}</div>
+        </body></html>`);
+    pw.document.close();
+    setTimeout(()=>pw.print(),400);
+});
+
+// ===== طباعة التقرير =====
+document.getElementById("btnReport").addEventListener("click",()=>{
+    const name = document.getElementById("curName").textContent;
+    const rx   = document.getElementById("prescription").value;
+    const diag = document.getElementById("diagnosis").value;
+    const g    = id => document.getElementById(id).checked ? "✅" : "—";
+
+    // جمع التحاليل والأشعة الإضافية
+    const extraLabs = [...document.querySelectorAll("#extraLabsList .cklbl")]
+        .map(l=>{ const cb=l.querySelector("input"); return `<tr><td>${l.textContent.trim()}</td><td>${cb.checked?"✅":"—"}</td></tr>`; }).join("");
+    const extraRad  = [...document.querySelectorAll("#extraRadList .cklbl")]
+        .map(l=>{ const cb=l.querySelector("input"); return `<tr><td>${l.textContent.trim()}</td><td>${cb.checked?"✅":"—"}</td></tr>`; }).join("");
+
+    const pw = window.open("","_blank");
+    pw.document.write(`<html><head><title>تقرير</title>
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+        <style>
+            @page{size:A4;margin:18mm;}
+            *{font-family:'Cairo',sans-serif;}
+            body{direction:rtl;color:#000;line-height:1.8;}
+            .hdr{text-align:center;border-bottom:3px double #000;padding-bottom:10px;margin-bottom:20px;}
+            table{width:100%;border-collapse:collapse;margin-top:12px;}
+            th,td{border:1px solid #aaa;padding:8px;text-align:right;font-size:12px;}
+            th{background:#f5f5f5;font-weight:700;}
+        </style></head><body>
+        <div class="hdr"><h1 style="margin:0">تقرير طبي استشاري</h1>
+        <p style="font-size:12px;margin:3px 0">${new Date().toLocaleDateString("ar-EG")}</p></div>
+        <p><strong>المريض:</strong> ${name}</p>
+        <p><strong>التشخيص:</strong> ${diag||"—"}</p>
+        <table>
+            <tr><th>الفحص</th><th>الحالة</th></tr>
+            <tr><td>CBC صورة الدم</td><td>${g("cbc")}</td></tr>
+            <tr><td>Urea / Creatinine</td><td>${g("urea")}</td></tr>
+            <tr><td>HbA1c السكر التراكمي</td><td>${g("hba1c")}</td></tr>
+            ${extraLabs}
+            <tr><td>Chest X-Ray</td><td>${g("xray")}</td></tr>
+            <tr><td>Abdominal Sonar</td><td>${g("sonar")}</td></tr>
+            ${extraRad}
+        </table>
+        <div style="margin-top:18px">
+            <p><strong>الخطة العلاجية:</strong></p>
+            <div style="background:#fafafa;padding:12px;border:1px solid #aaa;white-space:pre-line;font-size:12px">${rx||"—"}</div>
+        </div></body></html>`);
+    pw.document.close();
+    setTimeout(()=>pw.print(),400);
+});
+
+// ===== توست =====
+function showToast(msg,type=""){
+    const t=document.getElementById("toast");
+    t.textContent=msg;
+    t.className="toast"+(type==="ok"?" ok":"");
+    t.style.display="block";
+    setTimeout(()=>t.style.display="none",3000);
+}
+
+window.addEventListener("online", ()=>showToast("✅ اتصال مستعاد","ok"));
+window.addEventListener("offline",()=>showToast("⚠️ انقطع الاتصال — وضع أوفلاين"));
+</script>
+</body>
+</html>
