@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>منظومة دوائي - لوحة الطبيب</title>
+    <meta name="theme-color" content="#121212">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* ====== متغيرات الثيم ====== */
+        :root {
+            --bg: #121212;
+            --bg-card: #1e1e1e;
+            --border: #333;
+            --input-bg: #2d2d2d;
+            --accent: #00adb5;
+            --text: #e0e0e0;
+            --text-muted: #888;
+            --danger: #e74c3c;
+            --success: #2ecc71;
+            --info: #3498db;
+            --warn: #e67e22;
+        }
+        [data-theme="light"] {
+            --bg: #f0f4f8;
+            --bg-card: #ffffff;
+            --border: #dde3ea;
+            --input-bg: #f8fafc;
+            --accent: #2980b9;
+            --text: #1a2535;
+            --text-muted: #64748b;
+            --danger: #dc2626;
+            --success: #16a34a;
+            --info: #2563eb;
+            --warn: #d97706;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Cairo', sans-serif; }
+
+        /* ====== قفل أفقي + ملء شاشة ====== */
+        html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); transition: background .3s, color .3s; }
+
+        /* ====== تحذير الوضع العمودي ====== */
+        #rotate-warn {
+            display: none; position: fixed; inset: 0;
+            background: #0a0a0a; z-index: 999999;
+            flex-direction: column; align-items: center; justify-content: center;
+            gap: 16px; color: #fff; text-align: center; padding: 30px;
+        }
+        #rotate-warn i { font-size: 56px; color: var(--accent); animation: spin90 1.4s ease-in-out infinite alternate; }
+        @keyframes spin90 { from{transform:rotate(0deg)} to{transform:rotate(90deg)} }
+        #rotate-warn h2 { font-size: 20px; }
+        #rotate-warn p  { font-size: 13px; color: #666; }
+        @media (orientation: portrait)  { #rotate-warn{display:flex} #app{display:none!important} }
+        @media (orientation: landscape) { #rotate-warn{display:none} #app{display:flex} }
+
+        /* ====== هيكل التطبيق ====== */
+        #app { flex-direction: column; width: 100vw; height: 100vh; overflow: hidden; }
+
+        /* ====== الهيدر ====== */
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 14px; background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            height: 54px; flex-shrink: 0; gap: 10px; z-index: 200;
+        }
+        .header-right { display: flex; align-items: center; gap: 10px; }
+        .header-left  { display: flex; align-items: center; gap: 10px; }
+
+        /* ====== زر تبديل الثيم السحب ====== */
+        .theme-wrap { display: flex; align-items: center; gap: 6px; }
+        .theme-lbl  { font-size: 11px; font-weight: 700; color: var(--text-muted); }
+        .switch { position: relative; width: 50px; height: 24px; display: inline-block; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; inset: 0; cursor: pointer;
+            background: #2d2d2d; border: 2px solid #444;
+            border-radius: 34px; transition: .3s;
+        }
+        .slider:before {
+            content: ""; position: absolute;
+            width: 16px; height: 16px; left: 2px; bottom: 2px;
+            background: var(--accent); border-radius: 50%; transition: .3s;
+        }
+        input:checked + .slider { background: #dce8f5; border-color: #b0c8e0; }
+        input:checked + .slider:before { transform: translateX(26px); background: var(--info); }
+
+        /* ====== زر ضبط الختم ====== */
+        .settings-wrap { position: relative; }
+        .btn-icon {
+            background: none; border: 1.5px solid var(--border);
+            color: var(--text); width: 34px; height: 34px;
+            border-radius: 8px; cursor: pointer; display: flex;
+            align-items: center; justify-content: center; font-size: 15px;
+            transition: border-color .2s, color .2s;
+        }
+        .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+        .settings-drop {
+            display: none; position: absolute; top: 40px; left: 0;
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 10px; padding: 14px; width: 250px;
+            box-shadow: 0 6px 20px rgba(0,0,0,.35); z-index: 500;
+        }
+        .settings-drop.open { display: block; }
+        .drop-lbl { font-size: 11px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 4px; }
+
+        /* ====== أزرار عامة ====== */
+        .btn { padding: 7px 13px; border-radius: 7px; border: none; cursor: pointer; font-family: 'Cairo', sans-serif; font-weight: 700; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; transition: opacity .2s; }
+        .btn:active { opacity: .8; }
+        .btn-accent  { background: var(--accent); color: #fff; }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-info    { background: var(--info);    color: #fff; }
+        .btn-muted   { background: #6b7280;        color: #fff; }
+        .btn-warn    { background: var(--warn);    color: #fff; }
+        .btn-danger  { background: var(--danger);  color: #fff; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+
+        input[type="text"], select, textarea {
+            width: 100%; background: var(--input-bg); border: 1px solid var(--border);
+            color: var(--text); padding: 8px 10px; border-radius: 7px;
+            font-family: 'Cairo', sans-serif; font-size: 13px; outline: none; resize: none;
+            transition: border-color .2s;
+        }
+        input[type="text"]:focus, select:focus, textarea:focus { border-color: var(--accent); }
+
+        /* ====== تخطيط التطبيق ====== */
+        .app-body {
+            display: grid;
+            grid-template-columns: 200px 1fr 220px;
+            gap: 10px; padding: 10px;
+            height: calc(100vh - 54px);
+            overflow: hidden;
+        }
+
+        /* ====== عمود عام ====== */
+        .col { display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+        .card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 10px; padding: 10px;
+            display: flex; flex-direction: column; gap: 8px;
+            transition: background .3s;
+        }
+        .card-title { font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; color: var(--accent); }
+
+        /* ====== عمود الطابور (يسار) ====== */
+        .queue-col { overflow: hidden; }
+
+        /* ✅ بادجات الإحصاء فوق الطابور */
+        .queue-stats {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 6px; flex-shrink: 0;
+        }
+        .stat-box {
+            background: var(--input-bg); border: 1px solid var(--border);
+            border-radius: 8px; padding: 8px; text-align: center;
+        }
+        .stat-num  { font-size: 20px; font-weight: 700; color: var(--accent); }
+        .stat-lbl  { font-size: 9px; color: var(--text-muted); margin-top: 1px; }
+
+        .patient-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+        .patient-item {
+            background: var(--input-bg); border: 1px solid var(--border);
+            border-radius: 8px; padding: 8px 10px; cursor: pointer;
+            border-right: 3px solid transparent; transition: all .2s;
+        }
+        .patient-item:hover { border-right-color: var(--accent); }
+        .patient-item.active { border-right-color: var(--accent); background: rgba(0,173,181,.1); }
+        .p-name { font-size: 12px; font-weight: 700; }
+        .p-meta { font-size: 10px; color: var(--text-muted); display: flex; justify-content: space-between; margin-top: 2px; }
+        .badge-urgent  { color: var(--danger); }
+        .badge-normal  { color: var(--success); }
+        .badge-review  { color: var(--info); }
+
+        /* ====== العمود الأوسط ====== */
+        .center-col { overflow: hidden; }
+        .diagnosis-area { flex-shrink: 0; }
+        .rx-area { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 8px; }
+        textarea { flex: 1; }
+
+        /* ====== أزرار الإجراءات ====== */
+        .actions-row { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+        .act-btn { width: 100%; padding: 9px; font-size: 12px; }
+
+        /* ====== العمود الأيمن (فحوصات + أشعة) ====== */
+        .right-col { overflow-y: auto; }
+        label.check-lbl {
+            display: flex; align-items: center; gap: 7px;
+            font-size: 12px; padding: 5px 0; cursor: pointer;
+        }
+        label.check-lbl input { accent-color: var(--accent); width: 14px; height: 14px; }
+
+        /* ====== قائمة العلاجات الموصى بها (مودال كبير) ====== */
+        .med-modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,.75); z-index: 9999;
+            align-items: center; justify-content: center; padding: 10px;
+        }
+        .med-modal-overlay.open { display: flex; }
+        .med-modal {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 14px; width: 98%; max-width: 680px;
+            max-height: 88vh; display: flex; flex-direction: column;
+            overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.5);
+        }
+        .med-modal-head {
+            padding: 12px 14px; background: var(--bg);
+            border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            flex-shrink: 0;
+        }
+        .med-modal-body { padding: 12px; overflow-y: auto; flex: 1; }
+
+        /* ✅ شبكة بطاقات الأدوية */
+        .med-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 10px; margin-bottom: 14px;
+        }
+        .med-card {
+            background: var(--input-bg); border: 1px solid var(--border);
+            border-radius: 10px; padding: 10px; text-align: center;
+            cursor: pointer; position: relative; transition: border-color .2s, transform .15s;
+        }
+        .med-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+        .med-card img {
+            width: 56px; height: 56px; object-fit: cover;
+            border-radius: 8px; margin-bottom: 6px;
+            border: 1px solid var(--border);
+        }
+        .med-card .med-icon { font-size: 40px; margin-bottom: 6px; display: block; }
+        .med-card .med-name { font-size: 11px; font-weight: 700; display: block; margin-bottom: 2px; }
+        .med-card .med-cat  { font-size: 9px; color: var(--text-muted); display: block; }
+        .med-card-actions {
+            display: flex; justify-content: center; gap: 5px; margin-top: 8px;
+        }
+        .btn-add-rx { background: rgba(46,204,113,.15); border: 1px solid var(--success); color: var(--success); border-radius: 5px; padding: 3px 8px; font-size: 10px; cursor: pointer; font-weight: 700; }
+        .btn-del-med { background: rgba(231,76,60,.12); border: 1px solid var(--danger); color: var(--danger); border-radius: 5px; padding: 3px 7px; font-size: 10px; cursor: pointer; }
+
+        /* ✅ فورم إضافة علاج جديد */
+        .add-med-form {
+            background: var(--bg); border: 1px dashed var(--border);
+            border-radius: 10px; padding: 12px;
+            display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+        }
+        .med-img-thumb {
+            width: 48px; height: 48px; border-radius: 8px;
+            object-fit: cover; border: 1px solid var(--border); display: none;
+        }
+
+        /* ====== توست الشبكة ====== */
+        .net-toast {
+            position: fixed; bottom: 16px; left: 16px;
+            background: var(--danger); color: #fff;
+            padding: 10px 20px; border-radius: 8px;
+            font-size: 12px; font-weight: 700; z-index: 9000;
+            display: none; box-shadow: 0 4px 14px rgba(0,0,0,.3);
+        }
+        .net-toast.online { background: var(--success); }
+
+        /* ====== Scrollbar ====== */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<!-- تحذير الوضع العمودي -->
+<div id="rotate-warn">
+    <i class="fa-solid fa-rotate"></i>
+    <h2>يرجى تدوير الجهاز أفقياً</h2>
+    <p>لوحة الطبيب مصممة للوضع الأفقي فقط</p>
+</div>
+
+<!-- التطبيق -->
+<div id="app">
+
+    <!-- الهيدر -->
+    <header>
+        <div class="header-right">
+            <button class="btn btn-accent" id="btnToggleSidebar" style="font-size:12px;">
+                <i class="fa-solid fa-bars"></i>
+                طابور المرضى (<span id="queueCount">3</span>)
+            </button>
+            <input type="text" placeholder="بحث أو اسم مريض جديد..." style="width:240px; height:34px; font-size:12px;">
+        </div>
+
+        <div class="header-left">
+            <!-- ✅ زر ضبط الختم -->
+            <div class="settings-wrap">
+                <button class="btn-icon" id="btnSettings" title="إعدادات الختم">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+                <div class="settings-drop" id="settingsDrop">
+                    <strong style="font-size:12px; display:block; margin-bottom:10px; color:var(--accent);">
+                        <i class="fa-solid fa-stamp"></i> إعدادات الختم الطبي
+                    </strong>
+                    <label class="drop-lbl">شكل الختم:</label>
+                    <select id="stampShape" style="height:32px; margin-bottom:8px; font-size:12px;">
+                        <option value="classic">🔵 دائري كلاسيك</option>
+                        <option value="modern">🔴 مستطيل حديث</option>
+                    </select>
+                    <label class="drop-lbl">نص الختم:</label>
+                    <input type="text" id="stampText" value="د. مصطفى - العيادة الاستشارية" style="height:32px; font-size:11px;">
+                </div>
+            </div>
+
+            <!-- ✅ مفتاح الثيم السحب -->
+            <div class="theme-wrap">
+                <span class="theme-lbl">🌙</span>
+                <label class="switch">
+                    <input type="checkbox" id="themeToggle">
+                    <span class="slider"></span>
+                </label>
+                <span class="theme-lbl">☀️</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- الجسم -->
+    <div class="app-body">
+
+        <!-- ====== عمود الطابور (يسار) ====== -->
+        <div class="col queue-col">
+            <div class="card" style="flex:1; overflow:hidden;">
+                <div class="card-title"><i class="fa-solid fa-calendar-check"></i> طابور الحجز اليومي</div>
+
+                <!-- ✅ إحصاءات فوق الطابور -->
+                <div class="queue-stats">
+                    <div class="stat-box">
+                        <div class="stat-num" id="statWaiting">3</div>
+                        <div class="stat-lbl">انتظار</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-num" id="statDone" style="color:var(--success)">0</div>
+                        <div class="stat-lbl">تمت المعاينة</div>
+                    </div>
+                </div>
+
+                <div class="patient-list" id="patientList">
+                    <div class="patient-item active" data-name="أحمد علي كريم">
+                        <div class="p-name">أحمد علي كريم</div>
+                        <div class="p-meta"><span>12:22 م</span><span class="badge-normal">كشف عادي</span></div>
+                    </div>
+                    <div class="patient-item" data-name="سارة محمود جاسم">
+                        <div class="p-name">سارة محمود جاسم</div>
+                        <div class="p-meta"><span>12:35 م</span><span class="badge-urgent">حالة طارئة</span></div>
+                    </div>
+                    <div class="patient-item" data-name="محمد ضياء حسين">
+                        <div class="p-name">محمد ضياء حسين</div>
+                        <div class="p-meta"><span>01:05 م</span><span class="badge-review">مراجعة</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ====== العمود الأوسط ====== -->
+        <div class="col center-col">
+
+            <!-- العيادة -->
+            <div class="card diagnosis-area">
+                <div class="card-title"><i class="fa-solid fa-stethoscope"></i> العيادة الاستشارية</div>
+                <div style="font-size:11px; color:var(--text-muted);">
+                    المريض الحالي:
+                    <strong id="currentPatientName" style="color:var(--accent); font-size:13px;">أحمد علي كريم</strong>
+                </div>
+                <textarea id="diagnosis" style="min-height:55px; max-height:75px;"
+                    placeholder="التشخيص والملاحظات السريرية..."></textarea>
+            </div>
+
+            <!-- الروشتة -->
+            <div class="card rx-area" style="flex:1;">
+                <div class="card-title"><i class="fa-solid fa-prescription"></i> الروشتة الإلكترونية</div>
+
+                <!-- ✅ زر قائمة العلاجات -->
+                <button class="btn btn-warn" id="btnOpenMedModal" style="align-self:flex-start; font-size:11px;">
+                    <i class="fa-solid fa-pills"></i> قائمة العلاجات الموصى بها
+                </button>
+
+                <textarea id="prescription" style="flex:1; font-family:monospace; font-size:13px; line-height:1.7;"
+                    placeholder="اكتب العلاج والجرعات هنا...&#10;Amoxicillin 500mg - 1x3&#10;Paracetamol 500mg - 1x2"></textarea>
+
+                <!-- أزرار الإجراءات -->
+                <div class="actions-row">
+                    <button class="btn btn-success act-btn" id="btnSend">
+                        <i class="fa-solid fa-paper-plane"></i> إرسال الوصفة للصيدلية لايف
+                    </button>
+                    <button class="btn btn-info act-btn" id="btnPrint">
+                        <i class="fa-solid fa-print"></i> طباعة الوصفة مختومة
+                    </button>
+                    <button class="btn btn-muted act-btn" id="btnPrintReport">
+                        <i class="fa-solid fa-file-medical"></i> طباعة التقرير الطبي A4
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ====== العمود الأيمن ====== -->
+        <div class="col right-col">
+
+            <!-- فحوصات -->
+            <div class="card">
+                <div class="card-title"><i class="fa-solid fa-flask"></i> الفحوصات المختبرية</div>
+                <label class="check-lbl"><input type="checkbox" id="cbc"> CBC (صورة الدم)</label>
+                <label class="check-lbl"><input type="checkbox" id="urea"> Urea / Creatinine</label>
+                <label class="check-lbl"><input type="checkbox" id="hba1c"> HbA1c (السكر التراكمي)</label>
+                <input type="text" placeholder="تحليل إضافي..." style="height:32px; font-size:11px; margin-top:4px;">
+            </div>
+
+            <!-- أشعة -->
+            <div class="card">
+                <div class="card-title"><i class="fa-solid fa-x-ray"></i> وحدة الأشعة والسونار</div>
+                <label class="check-lbl"><input type="checkbox" id="xray"> Chest X-Ray</label>
+                <label class="check-lbl"><input type="checkbox" id="sonar"> Abdominal Sonar</label>
+                <input type="text" placeholder="فحص شعاعي إضافي..." style="height:32px; font-size:11px; margin-top:4px;">
+            </div>
+
+        </div>
+
+    </div><!-- /app-body -->
+</div><!-- /app -->
+
+<!-- ====== مودال قائمة العلاجات الكبيرة ====== -->
+<div class="med-modal-overlay" id="medModalOverlay">
+    <div class="med-modal">
+        <div class="med-modal-head">
+            <span style="font-size:13px; font-weight:700; color:var(--accent);">
+                <i class="fa-solid fa-pills"></i> قائمة العلاجات الموصى بها
+            </span>
+            <button class="btn btn-outline" id="btnCloseMedModal" style="font-size:11px; padding:5px 10px;">
+                إغلاق ✕
+            </button>
+        </div>
+        <div class="med-modal-body">
+
+            <!-- شبكة الأدوية -->
+            <div class="med-grid" id="medGrid"></div>
+
+            <!-- ✅ فورم إضافة علاج جديد بصورة -->
+            <div class="add-med-form">
+                <span style="font-size:11px; font-weight:700; color:var(--warn); white-space:nowrap;">
+                    <i class="fa-solid fa-plus-circle"></i> إضافة علاج جديد:
+                </span>
+                <input type="text" id="newMedName" placeholder="اسم العلاج والجرعة..." style="flex:1; height:34px; font-size:12px; min-width:140px;">
+                <input type="text" id="newMedCat" placeholder="التصنيف (مسكن ألم...)" style="flex:1; height:34px; font-size:12px; min-width:110px;">
+                <input type="file" id="medImgInput" accept="image/*" style="display:none;">
+                <img id="medImgPreview" class="med-img-thumb" src="" alt="">
+                <button class="btn btn-outline" id="btnPickImg" style="font-size:11px; white-space:nowrap;">
+                    <i class="fa-solid fa-camera"></i> صورة
+                </button>
+                <button class="btn btn-success" id="btnAddMed" style="font-size:11px; white-space:nowrap;">
+                    <i class="fa-solid fa-floppy-disk"></i> حفظ
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- توست الشبكة -->
+<div class="net-toast" id="netToast"></div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import {
+        initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+        doc, setDoc, collection, onSnapshot, query, where
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyC_k69WKhgdc_ocykxewWP2Mnr8u_780yU",
+        authDomain: "clinc-app-854a5.firebaseapp.com",
+        projectId: "clinc-app-854a5",
+        storageBucket: "clinc-app-854a5.firebasestorage.app",
+        messagingSenderId: "245805135578",
+        appId: "1:245805135578:web:99ee6cb9a24cae4eb6d7e3"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = initializeFirestore(app, {
+        localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+    });
+
+    // ====== ✅ الثيم السحب ======
+    const themeToggle = document.getElementById("themeToggle");
+    const savedTheme = localStorage.getItem("dwaee_doc_theme") || "dark";
+    if (savedTheme === "light") {
+        document.documentElement.setAttribute("data-theme", "light");
+        themeToggle.checked = true;
+    }
+    themeToggle.addEventListener("change", function () {
+        const t = this.checked ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", t);
+        localStorage.setItem("dwaee_doc_theme", t);
+    });
+
+    // ====== ضبط الختم ======
+    const btnSettings  = document.getElementById("btnSettings");
+    const settingsDrop = document.getElementById("settingsDrop");
+    btnSettings.addEventListener("click", e => { e.stopPropagation(); settingsDrop.classList.toggle("open"); });
+    document.addEventListener("click", () => settingsDrop.classList.remove("open"));
+    settingsDrop.addEventListener("click", e => e.stopPropagation());
+
+    // ====== طابور المرضى ======
+    // (الطابور الآن مدمج في العمود الأيسر مباشرة بدون sidebar منفصل)
+    // ✅ إحصاءات الانتظار والمعاينة
+    let doneCount = 0;
+    const statWaiting = document.getElementById("statWaiting");
+    const statDone    = document.getElementById("statDone");
+
+    document.querySelectorAll(".patient-item").forEach(item => {
+        item.addEventListener("click", function () {
+            document.getElementById("currentPatientName").textContent = this.dataset.name;
+            document.getElementById("diagnosis").value    = "";
+            document.getElementById("prescription").value = "";
+            document.querySelectorAll(".patient-item").forEach(i => i.classList.remove("active"));
+            this.classList.add("active");
+        });
+    });
+
+    // ====== ✅ قائمة العلاجات (مودال كبير) ======
+    let medicines = JSON.parse(localStorage.getItem("dwaee_meds") || "null") || [
+        { id: 1, name: "Amoxicillin 500mg - 1x3", cat: "مضاد حيوي", img: "" },
+        { id: 2, name: "Paracetamol 500mg - 1x2", cat: "مسكن ألم",  img: "" }
+    ];
+
+    const medGrid      = document.getElementById("medGrid");
+    const newMedName   = document.getElementById("newMedName");
+    const newMedCat    = document.getElementById("newMedCat");
+    const medImgInput  = document.getElementById("medImgInput");
+    const medImgPreview= document.getElementById("medImgPreview");
+    let   newImgB64    = "";
+
+    function saveMeds() { localStorage.setItem("dwaee_meds", JSON.stringify(medicines)); }
+
+    function renderMeds() {
+        medGrid.innerHTML = "";
+        medicines.forEach(m => {
+            const card = document.createElement("div");
+            card.className = "med-card";
+            card.innerHTML = `
+                ${m.img
+                    ? `<img src="${m.img}" alt="${m.name}">`
+                    : `<span class="med-icon">💊</span>`}
+                <span class="med-name">${m.name}</span>
+                <span class="med-cat">${m.cat || ""}</span>
+                <div class="med-card-actions">
+                    <button class="btn-add-rx" data-name="${m.name}">➕ إضافة للروشتة</button>
+                    <button class="btn-del-med" data-id="${m.id}">🗑️</button>
+                </div>
+            `;
+            // ✅ اضغط البطاقة كلها أو زر الإضافة
+            card.querySelector(".btn-add-rx").addEventListener("click", e => {
+                e.stopPropagation();
+                addToRx(m.name);
+            });
+            card.querySelector(".btn-del-med").addEventListener("click", e => {
+                e.stopPropagation();
+                medicines = medicines.filter(x => x.id !== m.id);
+                saveMeds(); renderMeds();
+            });
+            medGrid.appendChild(card);
+        });
+    }
+
+    function addToRx(text) {
+        const rx = document.getElementById("prescription");
+        rx.value += (rx.value && !rx.value.endsWith("\n") ? "\n" : "") + text + "\n";
+    }
+
+    // فتح / إغلاق المودال
+    document.getElementById("btnOpenMedModal").addEventListener("click", () => {
+        document.getElementById("medModalOverlay").classList.add("open");
+    });
+    document.getElementById("btnCloseMedModal").addEventListener("click", () => {
+        document.getElementById("medModalOverlay").classList.remove("open");
+    });
+    document.getElementById("medModalOverlay").addEventListener("click", function(e) {
+        if (e.target === this) this.classList.remove("open");
+    });
+
+    // اختيار صورة
+    document.getElementById("btnPickImg").addEventListener("click", () => medImgInput.click());
+    medImgInput.addEventListener("change", function () {
+        const file = this.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+            newImgB64 = e.target.result;
+            medImgPreview.src = newImgB64;
+            medImgPreview.style.display = "block";
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // إضافة علاج جديد
+    document.getElementById("btnAddMed").addEventListener("click", () => {
+        const name = newMedName.value.trim();
+        const cat  = newMedCat.value.trim();
+        if (!name) { alert("🚨 أدخل اسم العلاج!"); return; }
+        medicines.push({ id: Date.now(), name, cat, img: newImgB64 });
+        saveMeds(); renderMeds();
+        newMedName.value = ""; newMedCat.value = "";
+        medImgPreview.style.display = "none"; newImgB64 = "";
+        medImgInput.value = "";
+    });
+
+    renderMeds();
+
+    // ====== إرسال الوصفة للفايربيس ======
+    document.getElementById("btnSend").addEventListener("click", async () => {
+        const name = document.getElementById("currentPatientName").textContent;
+        const diag = document.getElementById("diagnosis").value;
+        const rx   = document.getElementById("prescription").value;
+
+        if (!rx.trim()) { alert("🚨 الروشتة فارغة!"); return; }
+
+        const meds = rx.trim().split("\n")
+            .filter(l => l.trim())
+            .map(l => ({ name: l.trim(), barcode: "manual", scanned: false }));
+
+        try {
+            await setDoc(doc(db, "prescriptions", `${name}_${Date.now()}`), {
+                name, diagnosis: diag,
+                meds, status: "pending",
+                timestamp: new Date().toISOString()
+            });
+            alert("✅ تم إرسال الوصفة للصيدلية بنجاح!");
+
+            // تحديث العداد
+            doneCount++;
+            const remaining = document.querySelectorAll(".patient-item").length - doneCount;
+            statWaiting.textContent = Math.max(0, remaining);
+            statDone.textContent    = doneCount;
+        } catch (e) {
+            alert("⚠️ خطأ بالإرسال: " + e.message);
+        }
+    });
+
+    // ====== طباعة الروشتة المختومة ======
+    document.getElementById("btnPrint").addEventListener("click", () => {
+        const name      = document.getElementById("currentPatientName").textContent;
+        const rx        = document.getElementById("prescription").value;
+        const diag      = document.getElementById("diagnosis").value;
+        const stampTxt  = document.getElementById("stampText").value;
+        const stampShape= document.getElementById("stampShape").value;
+
+        const stampStyle = stampShape === "classic"
+            ? "border:4px solid #124e78; color:#124e78; border-radius:50%; width:120px; height:120px; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:11px; text-align:center; padding:8px; transform:rotate(-5deg); background:rgba(18,78,120,.03);"
+            : "border:3px dashed #d32f2f; color:#d32f2f; padding:10px 18px; display:inline-block; font-weight:bold; font-size:13px; border-radius:4px; transform:rotate(2deg); background:rgba(211,47,47,.02);";
+
+        const pw = window.open("", "_blank");
+        pw.document.write(`
+            <html><head>
+            <title>الروشتة الطبية</title>
+            <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+            <style>
+                @page { size: A4; margin: 14mm; }
+                * { font-family: 'Cairo', sans-serif; }
+                body { direction:rtl; display:flex; flex-direction:column; min-height:88vh; color:#000; background:#fff; }
+                .hdr { text-align:center; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:14px; }
+                .sec { font-size:14px; font-weight:700; margin-bottom:6px; }
+                .rx-box { font-family:monospace; font-size:16px; white-space:pre-line; background:#fafafa; padding:14px; border:1px dashed #555; min-height:200px; }
+                .footer { margin-top:auto; display:flex; justify-content:flex-end; page-break-inside:avoid; padding-top:20px; }
+            </style></head><body>
+            <div class="hdr"><h2 style="margin:0">الروشتة الطبية الإلكترونية المعتمدة</h2></div>
+            <div class="sec">المريض: <span style="font-weight:400">${name}</span></div>
+            <div class="sec">التشخيص: <span style="font-weight:400">${diag || 'مستقر'}</span></div>
+            <div class="sec" style="margin-top:10px">العلاجات (Rx):</div>
+            <div class="rx-box">${rx || 'لم تدوَّن أدوية'}</div>
+            <div class="footer">
+                <div style="${stampStyle}">
+                    ${stampTxt}<br><span style="font-size:9px;font-weight:400">مصدق إلكترونياً</span>
+                </div>
+            </div>
+            </body></html>
+        `);
+        pw.document.close();
+        setTimeout(() => pw.print(), 400);
+    });
+
+    // ====== طباعة التقرير A4 ======
+    document.getElementById("btnPrintReport").addEventListener("click", () => {
+        const name  = document.getElementById("currentPatientName").textContent;
+        const rx    = document.getElementById("prescription").value;
+        const diag  = document.getElementById("diagnosis").value;
+        const g = id => document.getElementById(id).checked ? "✅ مطلوب" : "—";
+
+        const pw = window.open("", "_blank");
+        pw.document.write(`
+            <html><head>
+            <title>التقرير الطبي</title>
+            <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+            <style>
+                @page { size: A4; margin: 18mm; }
+                * { font-family:'Cairo',sans-serif; }
+                body { direction:rtl; color:#000; line-height:1.8; }
+                .hdr { text-align:center; border-bottom:3px double #000; padding-bottom:12px; margin-bottom:22px; }
+                table { width:100%; border-collapse:collapse; margin-top:14px; }
+                th,td { border:1px solid #aaa; padding:9px; text-align:right; font-size:13px; }
+                th { background:#f5f5f5; font-weight:700; }
+            </style></head><body>
+            <div class="hdr"><h1 style="margin:0">تقرير طبي استشاري شامل</h1>
+            <p style="font-size:13px;margin:4px 0">${new Date().toLocaleDateString('ar-EG')}</p></div>
+            <p><strong>المريض:</strong> ${name}</p>
+            <p><strong>التشخيص:</strong> ${diag || '—'}</p>
+            <table>
+                <tr><th>الفحص</th><th>الحالة</th></tr>
+                <tr><td>CBC صورة الدم</td><td>${g('cbc')}</td></tr>
+                <tr><td>Urea / Creatinine</td><td>${g('urea')}</td></tr>
+                <tr><td>HbA1c السكر التراكمي</td><td>${g('hba1c')}</td></tr>
+                <tr><td>Chest X-Ray أشعة صدر</td><td>${g('xray')}</td></tr>
+                <tr><td>Abdominal Sonar سونار بطن</td><td>${g('sonar')}</td></tr>
+            </table>
+            <div style="margin-top:20px">
+                <p><strong>الخطة العلاجية:</strong></p>
+                <div style="background:#fafafa;padding:14px;border:1px solid #aaa;white-space:pre-line;font-size:13px">${rx||'—'}</div>
+            </div>
+            </body></html>
+        `);
+        pw.document.close();
+        setTimeout(() => pw.print(), 400);
+    });
+
+    // ====== توست الشبكة ======
+    const toast = document.getElementById("netToast");
+    window.addEventListener("online",  () => { toast.textContent = "✅ تم استعادة الاتصال"; toast.classList.add("online"); toast.style.display="block"; setTimeout(()=>toast.style.display="none",3000); });
+    window.addEventListener("offline", () => { toast.textContent = "⚠️ انقطع الاتصال! العمل أوفلاين"; toast.classList.remove("online"); toast.style.display="block"; });
+
+</script>
+</body>
+</html>
