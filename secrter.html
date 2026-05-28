@@ -1,0 +1,430 @@
+cat > /mnt/user-data/outputs/secretary_fixed.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>منظومة دوائي - لوحة السكرتارية</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* ===== ثيم ===== */
+        :root,[data-theme="light"]{
+            --bg:#f0f4f8;--card:#fff;--bar:#fff;
+            --text:#1e293b;--muted:#64748b;--border:#e2e8f0;
+            --green:#10b981;--blue:#3b82f6;--red:#ef4444;--warn:#f59e0b;
+            --input:#f8fafc;
+        }
+        [data-theme="dark"]{
+            --bg:#0f172a;--card:#1e293b;--bar:#020617;
+            --text:#f0f4f8;--muted:#94a3b8;--border:#334155;
+            --green:#10b981;--blue:#3b82f6;--red:#ef4444;--warn:#f59e0b;
+            --input:#1e293b;
+        }
+        *{box-sizing:border-box;font-family:system-ui,sans-serif;margin:0;padding:0;}
+
+        /* ===== قفل أفقي ===== */
+        html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);transition:background .3s,color .3s;}
+
+        /* ===== تحذير عمودي ===== */
+        #rw{display:none;position:fixed;inset:0;background:#050c1a;z-index:9999999;
+            flex-direction:column;align-items:center;justify-content:center;
+            gap:16px;color:#fff;text-align:center;padding:30px;}
+        #rw i{font-size:56px;color:#10b981;animation:sp 1.4s ease-in-out infinite alternate;}
+        @keyframes sp{from{transform:rotate(0)}to{transform:rotate(90deg)}}
+        #rw h2{font-size:20px;}
+        #rw p{font-size:13px;color:#555;}
+        @media(orientation:portrait){#rw{display:flex}#app{display:none!important}}
+        @media(orientation:landscape){#rw{display:none}#app{display:flex}}
+
+        /* ===== هيكل ===== */
+        #app{flex-direction:column;width:100vw;height:100vh;overflow:hidden;}
+
+        /* ===== هيدر ===== */
+        header{
+            display:flex;justify-content:space-between;align-items:center;
+            padding:0 16px;background:var(--bar);border-bottom:1px solid var(--border);
+            height:52px;flex-shrink:0;gap:10px;
+        }
+        .brand{font-size:16px;font-weight:700;color:var(--green);}
+        .brand span{color:var(--text);}
+        .hright{display:flex;align-items:center;gap:10px;}
+
+        /* ===== مفتاح الثيم ===== */
+        .sw-wrap{display:flex;align-items:center;gap:5px;}
+        .sw-lbl{font-size:11px;color:var(--muted);}
+        .sw{position:relative;width:46px;height:22px;display:inline-block;}
+        .sw input{opacity:0;width:0;height:0;}
+        .sl{position:absolute;inset:0;cursor:pointer;background:#334155;border:2px solid #475569;border-radius:34px;transition:.3s;}
+        .sl:before{content:"";position:absolute;width:14px;height:14px;left:2px;bottom:2px;background:var(--green);border-radius:50%;transition:.3s;}
+        input:checked+.sl{background:#dce8f5;border-color:#b0c8e0;}
+        input:checked+.sl:before{transform:translateX(24px);background:var(--blue);}
+
+        /* ===== تخطيط ===== */
+        .body{
+            display:grid;
+            grid-template-columns:360px 1fr;
+            gap:12px;padding:12px;
+            height:calc(100vh - 52px);
+            overflow:hidden;
+        }
+
+        /* ===== بانل ===== */
+        .panel{
+            background:var(--card);border:1px solid var(--border);
+            border-radius:12px;padding:14px;
+            display:flex;flex-direction:column;gap:11px;
+            transition:background .3s;overflow:hidden;
+        }
+        .ptit{
+            font-size:12px;font-weight:700;display:flex;align-items:center;gap:7px;
+            border-bottom:1px dashed var(--border);padding-bottom:8px;flex-shrink:0;
+        }
+
+        /* ===== فورم ===== */
+        .fgrp{display:flex;flex-direction:column;gap:4px;}
+        .flbl{font-size:11px;font-weight:700;color:var(--muted);}
+        .finp{
+            width:100%;padding:9px 12px;font-size:12px;
+            border:1px solid var(--border);border-radius:7px;
+            background:var(--input);color:var(--text);outline:none;transition:.2s;
+        }
+        .finp:focus{border-color:var(--green);}
+
+        /* ===== حقل العمر مع الفئة ===== */
+        .age-row{display:flex;gap:8px;align-items:flex-end;}
+        .age-row .finp{flex:1;}
+        .age-badge{
+            flex-shrink:0;padding:9px 12px;border-radius:7px;
+            font-size:11px;font-weight:700;border:1px solid var(--border);
+            background:var(--input);color:var(--muted);white-space:nowrap;
+            transition:background .3s,color .3s;
+        }
+        .age-badge.child{background:rgba(59,130,246,.12);color:var(--blue);border-color:var(--blue);}
+        .age-badge.adult{background:rgba(16,185,129,.12);color:var(--green);border-color:var(--green);}
+        .age-badge.senior{background:rgba(245,158,11,.12);color:var(--warn);border-color:var(--warn);}
+
+        /* ===== إحصاء ===== */
+        .stats{display:flex;gap:8px;flex-shrink:0;}
+        .stat{
+            flex:1;padding:10px;border-radius:8px;text-align:center;
+            border:1px solid var(--border);background:var(--input);
+        }
+        .snum{font-size:20px;font-weight:700;}
+        .slbl{font-size:9px;color:var(--muted);margin-top:1px;}
+
+        /* ===== أزرار ===== */
+        .btn{
+            padding:10px 16px;border-radius:8px;font-weight:700;font-size:12px;
+            cursor:pointer;border:none;display:flex;align-items:center;
+            justify-content:center;gap:7px;transition:opacity .2s;width:100%;
+        }
+        .btn:active{opacity:.8;}
+        .bg{background:var(--green);color:#fff;}
+        .br{background:var(--red);color:#fff;}
+
+        /* ===== جدول الطابور ===== */
+        .tbl-wrap{flex:1;overflow-y:auto;}
+        table{width:100%;border-collapse:collapse;text-align:right;font-size:12px;}
+        th{
+            padding:10px;color:var(--muted);
+            border-bottom:2px solid var(--border);
+            position:sticky;top:0;background:var(--card);z-index:1;
+        }
+        td{padding:11px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+
+        .avatar{
+            width:32px;height:32px;border-radius:50%;
+            background:var(--border);display:flex;align-items:center;
+            justify-content:center;color:var(--muted);overflow:hidden;
+            border:1px solid var(--border);flex-shrink:0;
+        }
+        .avatar img{width:100%;height:100%;object-fit:cover;}
+        .pinfo{display:flex;align-items:center;gap:8px;}
+
+        .pill{padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;display:inline-block;}
+        .pill-wait{background:#fffbeb;color:#d97706;border:1px solid #fde68a;}
+        .pill-done{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;}
+
+        .del-btn{
+            background:none;color:var(--red);border:1px solid #fee2e2;
+            padding:5px 9px;border-radius:6px;cursor:pointer;
+            font-size:11px;transition:.2s;
+        }
+        .del-btn:hover{background:#fee2e2;}
+
+        /* ===== فئة عمر في الجدول ===== */
+        .cat-child {color:var(--blue);font-weight:700;font-size:10px;}
+        .cat-adult {color:var(--green);font-weight:700;font-size:10px;}
+        .cat-senior{color:var(--warn);font-weight:700;font-size:10px;}
+
+        /* ===== Scrollbar ===== */
+        ::-webkit-scrollbar{width:4px;}
+        ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+    </style>
+</head>
+<body>
+
+<div id="rw">
+    <i class="fa-solid fa-rotate"></i>
+    <h2>يرجى تدوير الجهاز أفقياً</h2>
+    <p>لوحة السكرتارية تعمل بالوضع الأفقي فقط</p>
+</div>
+
+<div id="app">
+
+    <header>
+        <div class="brand">دوائي <span>.Dwaee</span>
+            <small style="font-size:10px;color:var(--muted);margin-right:8px;">لوحة الاستقبال والسكرتارية</small>
+        </div>
+        <div class="hright">
+            <!-- مفتاح الثيم -->
+            <div class="sw-wrap">
+                <span class="sw-lbl">☀️</span>
+                <label class="sw">
+                    <input type="checkbox" id="themeToggle">
+                    <span class="sl"></span>
+                </label>
+                <span class="sw-lbl">🌙</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="body">
+
+        <!-- فورم التسجيل -->
+        <div class="panel">
+            <div class="ptit">
+                <i class="fa-solid fa-user-plus" style="color:var(--green)"></i>
+                تسجيل مريض جديد بالطابور
+            </div>
+
+            <div class="fgrp">
+                <label class="flbl">اسم المريض الثلاثي الكامل:</label>
+                <input type="text" id="patName" class="finp" placeholder="اكتب اسم المريض...">
+            </div>
+
+            <!-- ✅ حقل العمر مع بادج الفئة التلقائي -->
+            <div class="fgrp">
+                <label class="flbl">عمر المريض (بالسنوات):</label>
+                <div class="age-row">
+                    <input type="number" id="patAge" class="finp" placeholder="مثال: 35" min="0" max="120">
+                    <div class="age-badge" id="ageBadge">— الفئة</div>
+                </div>
+            </div>
+
+            <div class="fgrp">
+                <label class="flbl">نوع الزيارة:</label>
+                <select id="patType" class="finp" style="height:36px;">
+                    <option value="normal">كشف عادي</option>
+                    <option value="urgent">حالة طارئة</option>
+                    <option value="review">مراجعة</option>
+                </select>
+            </div>
+
+            <button class="btn bg" id="btnAdd">
+                <i class="fa-solid fa-plus"></i> حقن المريض في الطابور
+            </button>
+
+            <!-- إحصاء -->
+            <div class="ptit" style="border:none;padding:0;font-size:11px;margin-top:4px;">
+                <i class="fa-solid fa-chart-simple"></i> إحصائية الطابور اللحظية
+            </div>
+            <div class="stats">
+                <div class="stat">
+                    <div class="snum" id="lblWait" style="color:var(--warn)">0</div>
+                    <div class="slbl">انتظار ⏳</div>
+                </div>
+                <div class="stat">
+                    <div class="snum" id="lblDone" style="color:var(--green)">0</div>
+                    <div class="slbl">تمت المعاينة ✓</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- جدول الطابور -->
+        <div class="panel" style="gap:8px;">
+            <div class="ptit" style="flex-shrink:0;">
+                <i class="fa-solid fa-rectangle-list" style="color:var(--blue)"></i>
+                قائمة الطابور والمراجعة الحية اليومية
+            </div>
+            <div class="tbl-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>المريض</th>
+                            <th>العمر / الفئة</th>
+                            <th>نوع الزيارة</th>
+                            <th>الحالة</th>
+                            <th>وقت التسجيل</th>
+                            <th style="text-align:left;">إجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody id="queueBody">
+                        <tr><td colspan="6" style="text-align:center;padding:25px;color:var(--muted);">
+                            لا يوجد مرضى مسجلين بعد
+                        </td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import {
+    getFirestore, collection, onSnapshot,
+    doc, addDoc, deleteDoc
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+const cfg = {
+    apiKey:"AIzaSyC_k69WKhgdc_ocykxewWP2Mnr8u_780yU",
+    authDomain:"clinc-app-854a5.firebaseapp.com",
+    projectId:"clinc-app-854a5",
+    storageBucket:"clinc-app-854a5.firebasestorage.app",
+    messagingSenderId:"245805135578",
+    appId:"1:245805135578:web:99ee6cb9a24cae4eb6d7e3"
+};
+const app = initializeApp(cfg);
+const db  = getFirestore(app);
+
+// ===== ثيم =====
+const tog = document.getElementById("themeToggle");
+const th  = localStorage.getItem("dwaee_sec_th") || "light";
+document.documentElement.setAttribute("data-theme", th);
+if(th === "dark") tog.checked = true;
+tog.addEventListener("change", function(){
+    const t = this.checked ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", t);
+    localStorage.setItem("dwaee_sec_th", t);
+});
+
+// ===== ✅ بادج العمر التلقائي =====
+function getAgeCategory(age){
+    if(age === "" || isNaN(age)) return {label:"— الفئة", cls:""};
+    const a = parseInt(age);
+    if(a < 18)  return {label:"👶 طفل / Child",   cls:"child"};
+    if(a < 60)  return {label:"🧑 بالغ / Adult",  cls:"adult"};
+    return           {label:"👴 كبير / Senior", cls:"senior"};
+}
+
+document.getElementById("patAge").addEventListener("input", function(){
+    const cat = getAgeCategory(this.value);
+    const badge = document.getElementById("ageBadge");
+    badge.textContent = cat.label;
+    badge.className   = "age-badge " + cat.cls;
+});
+
+// ===== إضافة مريض =====
+document.getElementById("btnAdd").addEventListener("click", async function(){
+    const name = document.getElementById("patName").value.trim();
+    const age  = document.getElementById("patAge").value.trim();
+    const type = document.getElementById("patType").value;
+
+    if(!name){ alert("🚨 يرجى كتابة اسم المريض!"); return; }
+    if(!age || isNaN(parseInt(age))){ alert("🚨 يرجى إدخال عمر المريض!"); return; }
+
+    const cat = getAgeCategory(age);
+
+    // ✅ يحفظ في نفس collection "prescriptions" اللي يقرأ منها الطبيب
+    await addDoc(collection(db,"prescriptions"),{
+        name:    name,
+        age:     parseInt(age),
+        ageCategory: cat.cls,      // child | adult | senior
+        type:    type,
+        status:  "pending",
+        diagnosis:"",
+        meds:    [],
+        stamped: false,
+        stampText:"",
+        createdAt: Date.now()
+    });
+
+    document.getElementById("patName").value = "";
+    document.getElementById("patAge").value  = "";
+    document.getElementById("ageBadge").textContent = "— الفئة";
+    document.getElementById("ageBadge").className   = "age-badge";
+    document.getElementById("patType").value = "normal";
+});
+
+// ===== حذف مريض =====
+window.removePatient = async function(id){
+    if(confirm("هل تريد إزالة هذا المريض من الطابور؟")){
+        await deleteDoc(doc(db,"prescriptions",id));
+    }
+};
+
+// ===== استماع حي =====
+onSnapshot(collection(db,"prescriptions"), snap =>{
+    const tbody = document.getElementById("queueBody");
+    tbody.innerHTML = "";
+    let waiting = 0, done = 0;
+
+    let rows = [];
+    snap.forEach(d => rows.push({id:d.id,...d.data()}));
+    rows.sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+
+    if(rows.length === 0){
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:25px;color:var(--muted);">لا يوجد مرضى مسجلين بعد</td></tr>`;
+        document.getElementById("lblWait").textContent = 0;
+        document.getElementById("lblDone").textContent = 0;
+        return;
+    }
+
+    rows.forEach(data=>{
+        if(data.status==="pending")    waiting++;
+        else if(data.status==="dispensed") done++;
+
+        const time = data.createdAt
+            ? new Date(data.createdAt).toLocaleTimeString("ar-IQ",{hour:"2-digit",minute:"2-digit"})
+            : "--:--";
+
+        // فئة العمر
+        const ageCls   = data.ageCategory || getAgeCategory(data.age||0).cls;
+        const ageLbl   = data.age ? `${data.age} سنة` : "—";
+        const catLabel = ageCls==="child" ? "طفل" : ageCls==="senior" ? "كبير" : "بالغ";
+
+        // نوع الزيارة
+        const typeMap  = {normal:"كشف عادي",urgent:"طارئة 🔴",review:"مراجعة"};
+        const typeText = typeMap[data.type||"normal"] || "كشف عادي";
+        const typeColor= data.type==="urgent"?"var(--red)":data.type==="review"?"var(--blue)":"var(--green)";
+
+        const statusPill = data.status==="pending"
+            ? `<span class="pill pill-wait">انتظار ⏳</span>`
+            : `<span class="pill pill-done">تمت المعاينة ✓</span>`;
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>
+                <div class="pinfo">
+                    <div class="avatar">
+                        <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="">
+                    </div>
+                    <strong>${data.name}</strong>
+                </div>
+            </td>
+            <td>
+                <span>${ageLbl}</span><br>
+                <span class="cat-${ageCls}">${catLabel}</span>
+            </td>
+            <td><span style="color:${typeColor};font-weight:700;font-size:11px;">${typeText}</span></td>
+            <td>${statusPill}</td>
+            <td style="color:var(--muted);font-size:11px;">${time}</td>
+            <td style="text-align:left;">
+                <button class="del-btn" onclick="removePatient('${data.id}')">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById("lblWait").textContent = waiting;
+    document.getElementById("lblDone").textContent = done;
+});
+</script>
+</body>
+</html>
+HTMLEOF
+echo "Done"
