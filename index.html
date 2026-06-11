@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>منظومة دوائي - لوحة الطبيب</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script>
+        tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { cairo: ['Cairo', 'sans-serif'] }, colors: { emerald: { 950: '#022c22', 900: '#064e3b', 800: '#065f46', 700: '#047857', 600: '#059669', 500: '#10b981', 400: '#34d399', 300: '#6ee7b7', 200: '#a7f3d0', } } } } }
+    </script>
+    <style>
+        * { font-family: 'Cairo', sans-serif; } html, body, #root { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; } ::-webkit-scrollbar { width: 4px; height: 4px; } ::-webkit-scrollbar-thumb { background: rgba(52,211,153,.3); border-radius: 4px; } @media (orientation: portrait) { #rotate-warn { display: flex !important; } #root { display: none !important; } } @media (orientation: landscape) { #rotate-warn { display: none !important; } } .glow { text-shadow: 0 0 12px currentColor; } @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } } .fade-in { animation: fadeIn .25s ease forwards; }
+    </style>
+</head>
+<body>
+    <div id="rotate-warn" style="display:none;position:fixed;inset:0;background:#020a06;z-index:9999999; flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#fff;text-align:center;padding:30px;">
+        <div style="font-size:60px;animation:spin 1.4s ease-in-out infinite alternate;">🔄</div>
+        <h2 style="font-size:22px;font-weight:900;color:#34d399;">يرجى تدوير الجهاز أفقياً</h2>
+        <p style="font-size:13px;color:#6b7280;">لوحة الطبيب تعمل بالوضع الأفقي فقط</p>
+    </div>
+    <style>@keyframes spin{from{transform:rotate(0)}to{transform:rotate(90deg)}}</style>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+        const DEF_MEDS = [{ id:1, name:"Amoxicillin 500mg - 1x3", cat:"مضاد حيوي", emoji:"💊", img:"" }, { id:2, name:"Paracetamol 500mg - 1x2", cat:"مسكن ألم", emoji:"💊", img:"" }, { id:3, name:"Zofran Amp", cat:"مضاد غثيان",emoji:"💉", img:"" }];
+        const DEF_LABS = [{ id:1, label:"CBC صورة الدم الكاملة", checked:false }, { id:2, label:"Urea / Creatinine", checked:false }, { id:3, label:"HbA1c السكر التراكمي", checked:false }];
+        const DEF_RADS = [{ id:1, label:"Chest X-Ray", checked:false }, { id:2, label:"Abdominal Sonar", checked:false }];
+        const DEF_SETTINGS = { clinicName:"العيادة الاستشارية التخصصية", doctorName:"د. مصطفى أحمد", stampLine1:"د. مصطفى أحمد", stampLine2:"العيادة الاستشارية", stampShape:"classic" };
+        const EMOJIS = ["💊","💉","🩺","🧬","🩹","🌡️","⚕️","🫀","🫁","🧪","🩻","🔬","🍃","🌿","💪","🏥","🧴","🫙"];
+
+        function StampEl({ l1, l2, shape }) {
+            if (shape === "classic") return (<div style={{ transform:"rotate(-5deg)", border:"3px solid #124e78", color:"#124e78", borderRadius:"50%", width:80, height:80, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center", padding:5, lineHeight:1.4, fontSize:8, fontWeight:700 }}>{l1}<span style={{ fontSize:7, fontWeight:400, marginTop:2 }}>{l2}</span><span style={{ fontSize:6, opacity:.6 }}>مصدق إلكترونياً</span></div>);
+            return (<div style={{ transform:"rotate(2deg)", border:"2px dashed #c62828", color:"#c62828", padding:"6px 12px", borderRadius:4, display:"inline-flex", flexDirection:"column", alignItems:"center", lineHeight:1.4, fontSize:10, fontWeight:700 }}>{l1}<span style={{ fontSize:8, fontWeight:400, marginTop:1 }}>{l2}</span><span style={{ fontSize:7, opacity:.6 }}>مصدق إلكترونياً</span></div>);
+        }
+
+        function CheckRow({ item, dark, onToggle, onDelete }) {
+            return (<div className={`flex items-center gap-2 px-2 py-1.5 rounded-lg group transition-all cursor-pointer ${dark ? "hover:bg-emerald-950/40" : "hover:bg-emerald-50"}`}><input type="checkbox" checked={item.checked} onChange={onToggle} className="w-3.5 h-3.5 flex-shrink-0 cursor-pointer" style={{ accentColor:"#10b981" }} /><span className="flex-1 text-[11px]">{item.label}</span><button onClick={onDelete} className="w-5 h-5 rounded flex items-center justify-center text-[9px] opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500/15 hover:text-red-400 text-slate-500">✕</button></div>);
+        }
+
+        function Card({ children, dark, style={}, className="" }) {
+            return (<div className={`rounded-2xl border transition-all duration-300 relative overflow-hidden ${className}`} style={{ background: dark ? "#131B2E" : "#ffffff", borderColor: dark ? "#1E293B" : "#f1f5f9", boxShadow: dark ? "0 8px 32px rgba(0,0,0,.45),0 1px 0 rgba(52,211,153,.06) inset" : "0 4px 16px rgba(0,0,0,.06)", backdropFilter: dark ? "blur(4px)" : "none", ...style }}>{dark && <div style={{ position:"absolute", top:0, left:0, right:0, height:1, background:"linear-gradient(90deg,transparent,rgba(52,211,153,.2),transparent)" }} />}{children}</div>);
+        }
+
+        function AddRow({ dark, placeholder, accentColor, onAdd }) {
+            const [val, setVal] = useState("");
+            function submit() { if(val.trim()) { onAdd(val.trim()); setVal(""); } }
+            return (<div className="flex gap-1.5 mt-2"><input value={val} onChange={e => setVal(e.target.value)} placeholder={placeholder} onKeyDown={e => e.key === "Enter" && submit()} style={{ flex:1, height:28, padding:"0 10px", borderRadius:8, fontSize:10, border:`1px solid ${dark ? "rgba(52,211,153,.2)" : "#e2e8f0"}`, background: dark ? "rgba(52,211,153,.04)" : "#f8fafc", color: dark ? "#f0fdf4" : "#1e293b", outline:"none" }} /><button onClick={submit} style={{ width:28, height:28, borderRadius:8, border:`1px solid ${accentColor}44`, background:`${accentColor}15`, color:accentColor, fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700 }}>+</button></div>);
+        }
+
+        function DoctorApp() {
+            const [dark, setDark] = useState(() => localStorage.getItem("dwaee_th") !== "light");
+            const [settings, setSett] = useState(() => JSON.parse(localStorage.getItem("dwaee_sett")||"null") || DEF_SETTINGS);
+            const [settDraft, setSD] = useState(DEF_SETTINGS);
+            const [meds, setMeds] = useState(() => JSON.parse(localStorage.getItem("dwaee_meds")||"null") || DEF_MEDS);
+            const [labs, setLabs] = useState(DEF_LABS);
+            const [rads, setRads] = useState(DEF_RADS);
+            const [activeP, setActiveP] = useState(null);
+            const [diag, setDiag] = useState("");
+            const [rx, setRx] = useState("");
+            const [stampOn, setStampOn] = useState(false);
+            const [showMeds, setShowMeds] = useState(false);
+            const [showSett, setShowSett] = useState(false);
+            const [showEmoji, setShowEmoji]= useState(false);
+            const [toast, setToast] = useState(null);
+            
+            useEffect(() => { localStorage.setItem("dwaee_th", dark ? "dark" : "light"); }, [dark]);
+            useEffect(() => { localStorage.setItem("dwaee_meds", JSON.stringify(meds)); }, [meds]);
+
+            return (<div style={{ background: dark ? "#0B1221" : "#F8FAFC", color: dark ? "#f0fdf4" : "#1e293b", width:"100vw", height:"100vh", display:"flex", flexDirection:"column", overflow:"hidden" }}><div id="root"></div></div>);
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(<DoctorApp />);
+    </script>
+</body>
+</html>
