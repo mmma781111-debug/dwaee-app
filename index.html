@@ -1,0 +1,673 @@
+import { useState, useEffect, useRef } from "react";
+
+// ===== بيانات افتراضية =====
+const DEFAULT_MEDS = [
+  { id: 1, name: "Amoxicillin 500mg - 1x3", cat: "مضاد حيوي", emoji: "💊", img: "" },
+  { id: 2, name: "Paracetamol 500mg - 1x2", cat: "مسكن ألم",  emoji: "💊", img: "" },
+  { id: 3, name: "Zofran Amp",               cat: "مضاد غثيان",emoji: "💉", img: "" },
+];
+
+const DEFAULT_LABS = [
+  { id: 1, label: "CBC صورة الدم الكاملة",   checked: false, editable: false },
+  { id: 2, label: "Urea / Creatinine",         checked: false, editable: false },
+  { id: 3, label: "HbA1c السكر التراكمي",     checked: false, editable: false },
+];
+
+const DEFAULT_RADS = [
+  { id: 1, label: "Chest X-Ray",              checked: false, editable: false },
+  { id: 2, label: "Abdominal Sonar",           checked: false, editable: false },
+];
+
+const DEFAULT_SETTINGS = {
+  clinicName:  "العيادة الاستشارية التخصصية",
+  doctorName:  "د. مصطفى أحمد",
+  stampLine1:  "د. مصطفى أحمد",
+  stampLine2:  "العيادة الاستشارية",
+  stampShape:  "classic",
+};
+
+const EMOJIS = ["💊","💉","🩺","🧬","🩹","🌡️","⚕️","🫀","🫁","🧪","🩻","🔬","🍃","🌿","💪","🏥","🧴","🫙"];
+
+// ===== الختم =====
+function StampEl({ l1, l2, shape }) {
+  if (shape === "classic") return (
+    <div style={{ transform: "rotate(-5deg)" }}
+      className="w-20 h-20 rounded-full border-[3px] border-blue-800 text-blue-800
+        flex flex-col items-center justify-center text-center p-1 leading-tight">
+      <span className="text-[8px] font-bold">{l1}</span>
+      <span className="text-[7px]">{l2}</span>
+      <span className="text-[6px] opacity-60">مصدق إلكترونياً</span>
+    </div>
+  );
+  return (
+    <div style={{ transform: "rotate(2deg)" }}
+      className="border-2 border-dashed border-red-700 text-red-700 px-3 py-2
+        rounded flex flex-col items-center text-center leading-tight">
+      <span className="text-[10px] font-bold">{l1}</span>
+      <span className="text-[8px]">{l2}</span>
+      <span className="text-[7px] opacity-60">مصدق إلكترونياً</span>
+    </div>
+  );
+}
+
+// ===== صف فحص/أشعة =====
+function CheckRow({ item, onToggle, onEdit, onDelete, onSave, accent }) {
+  const [editVal, setEditVal] = useState(item.label);
+  return (
+    <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg group hover:bg-emerald-500/5 transition-all">
+      <input type="checkbox" checked={item.checked} onChange={onToggle}
+        className="w-3.5 h-3.5 accent-emerald-500 flex-shrink-0 cursor-pointer" />
+      {item.editable ? (
+        <input value={editVal} onChange={e => setEditVal(e.target.value)}
+          onBlur={() => onSave(editVal)} onKeyDown={e => e.key === "Enter" && onSave(editVal)}
+          autoFocus
+          className="flex-1 text-[11px] bg-transparent border-b border-emerald-500 outline-none" />
+      ) : (
+        <span className="flex-1 text-[11px]">{item.label}</span>
+      )}
+      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button onClick={onEdit}
+          className="w-5 h-5 rounded flex items-center justify-center text-[9px]
+            hover:bg-blue-500/15 hover:text-blue-400 text-slate-500 transition-colors">✏️</button>
+        <button onClick={onDelete}
+          className="w-5 h-5 rounded flex items-center justify-center text-[9px]
+            hover:bg-red-500/15 hover:text-red-400 text-slate-500 transition-colors">🗑️</button>
+      </div>
+    </div>
+  );
+}
+
+// ===== البطاقة الأساسية =====
+function Card({ children, dark, className = "" }) {
+  return (
+    <div className={`rounded-2xl border transition-all duration-300 relative overflow-hidden
+      ${dark
+        ? "bg-[#131B2E] border-[#1E293B] shadow-lg backdrop-blur-sm"
+        : "bg-white border-slate-100 shadow-md"}
+      ${className}`}>
+      <div className={`absolute top-0 left-0 right-0 h-px
+        ${dark ? "bg-gradient-to-r from-transparent via-emerald-500/25 to-transparent" : ""}`} />
+      {children}
+    </div>
+  );
+}
+
+// ===== المكوّن الرئيسي =====
+export default function DoctorDashboard() {
+  const [dark, setDark]             = useState(() => localStorage.getItem("dwaee_theme") !== "light");
+  const [settings, setSettings]     = useState(() => JSON.parse(localStorage.getItem("dwaee_settings") || "null") || DEFAULT_SETTINGS);
+  const [meds, setMeds]             = useState(() => JSON.parse(localStorage.getItem("dwaee_meds") || "null") || DEFAULT_MEDS);
+  const [labs, setLabs]             = useState(DEFAULT_LABS);
+  const [rads, setRads]             = useState(DEFAULT_RADS);
+  const [patients]                  = useState([
+    { id: "p1", name: "ليان محمد",       type: "normal",  time: "09:10" },
+    { id: "p2", name: "محمد مرتضى",      type: "urgent",  time: "09:35" },
+    { id: "p3", name: "شمس سجاد محمد",   type: "review",  time: "10:00" },
+  ]);
+  const [activePatient, setActive]  = useState(null);
+  const [diagnosis, setDiagnosis]   = useState("");
+  const [rx, setRx]                 = useState("");
+  const [stampOn, setStampOn]       = useState(false);
+  const [showMedModal, setMedModal] = useState(false);
+  const [showSettings, setSettings2]= useState(false);
+  const [showEmoji, setShowEmoji]   = useState(false);
+  const [emojiTarget, setEmojiTgt]  = useState("new");
+  const [newMedName, setNewMedName] = useState("");
+  const [newMedCat, setNewMedCat]   = useState("");
+  const [newMedEmoji, setNewEmoji]  = useState("💊");
+  const [newMedImg, setNewMedImg]   = useState("");
+  const [doneCount, setDone]        = useState(0);
+  const [toast, setToast]           = useState(null);
+  const [settingsDraft, setSD]      = useState(settings);
+  const fileRef                     = useRef();
+
+  // ثيم
+  useEffect(() => {
+    localStorage.setItem("dwaee_theme", dark ? "dark" : "light");
+  }, [dark]);
+
+  // حفظ الأدوية
+  useEffect(() => {
+    localStorage.setItem("dwaee_meds", JSON.stringify(meds));
+  }, [meds]);
+
+  function showToast(msg, ok = false) {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  // ألوان الثيم
+  const T = {
+    bg:      dark ? "bg-[#0B1221]"  : "bg-[#F8FAFC]",
+    text:    dark ? "text-slate-100": "text-slate-800",
+    muted:   dark ? "text-slate-400": "text-slate-500",
+    barBg:   dark ? "bg-[#0d1729]"  : "bg-white",
+    barBor:  dark ? "border-[#1E293B]":"border-slate-100",
+    inp:     dark
+      ? "bg-[#0B1221]/60 border-emerald-900/40 text-slate-100 placeholder:text-slate-600 focus:border-emerald-500/60 focus:ring-emerald-500/10"
+      : "bg-white border-slate-200 text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/20",
+    pitem:   dark
+      ? "bg-[#0f1a2e] border-[#1E293B] hover:border-emerald-500/40 hover:bg-emerald-950/30"
+      : "bg-slate-50 border-slate-100 hover:border-emerald-300 hover:bg-emerald-50/50",
+    stat:    dark ? "bg-[#0f1a2e] border-[#1E293B]":"bg-slate-50 border-slate-100",
+    ck:      dark ? "hover:bg-emerald-950/30":"hover:bg-emerald-50",
+  };
+
+  // ===== طابور المرضى =====
+  const typeColor = t => t === "urgent" ? "text-red-400" : t === "review" ? "text-sky-400" : "text-emerald-400";
+  const typeLabel = t => t === "urgent" ? "طارئة" : t === "review" ? "مراجعة" : "كشف";
+
+  // ===== فحوصات =====
+  function toggleLab(i) { setLabs(l => l.map((x, j) => j === i ? { ...x, checked: !x.checked } : x)); }
+  function editLab(i)   { setLabs(l => l.map((x, j) => j === i ? { ...x, editable: true } : x)); }
+  function saveLab(i, v){ setLabs(l => l.map((x, j) => j === i ? { ...x, label: v, editable: false } : x)); }
+  function delLab(i)    { setLabs(l => l.filter((_, j) => j !== i)); }
+  function addLab(v)    { if (!v.trim()) return; setLabs(l => [...l, { id: Date.now(), label: v, checked: false, editable: false }]); }
+
+  function toggleRad(i) { setRads(r => r.map((x, j) => j === i ? { ...x, checked: !x.checked } : x)); }
+  function editRad(i)   { setRads(r => r.map((x, j) => j === i ? { ...x, editable: true } : x)); }
+  function saveRad(i, v){ setRads(r => r.map((x, j) => j === i ? { ...x, label: v, editable: false } : x)); }
+  function delRad(i)    { setRads(r => r.filter((_, j) => j !== i)); }
+  function addRad(v)    { if (!v.trim()) return; setRads(r => [...r, { id: Date.now(), label: v, checked: false, editable: false }]); }
+
+  // ===== الأدوية =====
+  function addToRx(name) {
+    setRx(r => (r && !r.endsWith("\n") ? r + "\n" : r) + name + "\n");
+  }
+  function delMed(i) { setMeds(m => m.filter((_, j) => j !== i)); }
+  function addMed() {
+    if (!newMedName.trim()) { showToast("🚨 أدخل اسم العلاج!"); return; }
+    setMeds(m => [...m, { id: Date.now(), name: newMedName, cat: newMedCat, emoji: newMedEmoji, img: newMedImg }]);
+    setNewMedName(""); setNewMedCat(""); setNewEmoji("💊"); setNewMedImg("");
+    showToast("✅ تم إضافة العلاج", true);
+  }
+  function handleImgUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setNewMedImg(ev.target.result);
+    reader.readAsDataURL(file);
+  }
+  function pickEmoji(t) { setEmojiTgt(t); setShowEmoji(true); }
+  function selectEmoji(e) {
+    if (emojiTarget === "new") { setNewEmoji(e); }
+    else { setMeds(m => m.map((x, i) => i === emojiTarget ? { ...x, emoji: e, img: "" } : x)); }
+    setShowEmoji(false);
+  }
+
+  // ===== إرسال الروشتة =====
+  function sendRx() {
+    if (!activePatient) { showToast("🚨 اختر مريضاً أولاً!"); return; }
+    if (!rx.trim())     { showToast("🚨 الروشتة فارغة!"); return; }
+    setDone(d => d + 1);
+    showToast("✅ تم الإرسال للصيدلية!", true);
+  }
+
+  // ===== طباعة =====
+  function printRx() {
+    if (!rx.trim()) { showToast("🚨 الروشتة فارغة!"); return; }
+    const pw = window.open("", "_blank");
+    pw.document.write(`<html><head><title>روشتة</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <style>*{font-family:'Cairo'} body{direction:rtl;padding:20mm;color:#000}
+    h2{color:#059669;border-bottom:2px solid #059669;padding-bottom:8px}
+    .rx{font-family:monospace;background:#f0fdf4;padding:14px;border:1px dashed #059669;
+      white-space:pre-line;border-radius:8px;min-height:120px}
+    .foot{margin-top:auto;display:flex;justify-content:flex-end;padding-top:20px}
+    body{display:flex;flex-direction:column;min-height:90vh}
+    </style></head><body>
+    <h2>${settings.clinicName}</h2>
+    <p><b>الطبيب:</b> ${settings.doctorName}</p>
+    <p><b>المريض:</b> ${activePatient?.name || "—"}</p>
+    <p><b>التشخيص:</b> ${diagnosis || "مستقر"}</p>
+    <p style="margin-top:12px"><b>Rx:</b></p>
+    <div class="rx">${rx}</div>
+    ${stampOn ? `<div class="foot"><div style="border:3px solid #124e78;color:#124e78;border-radius:50%;
+      width:80px;height:80px;display:flex;flex-direction:column;align-items:center;
+      justify-content:center;font-size:8px;font-weight:700;text-align:center;transform:rotate(-5deg)">
+      ${settings.stampLine1}<span style="font-size:7px;font-weight:400">${settings.stampLine2}</span>
+      <span style="font-size:6px;opacity:.7">مصدق إلكترونياً</span></div></div>` : ""}
+    </body></html>`);
+    pw.document.close(); setTimeout(() => pw.print(), 400);
+  }
+
+  function printReport() {
+    const pw = window.open("", "_blank");
+    const allItems = [
+      ...labs.map(l => `<tr><td>${l.label}</td><td>${l.checked ? "✅" : "—"}</td></tr>`),
+      ...rads.map(r => `<tr><td>${r.label}</td><td>${r.checked ? "✅" : "—"}</td></tr>`),
+    ].join("");
+    pw.document.write(`<html><head><title>تقرير</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <style>*{font-family:'Cairo'} body{direction:rtl;padding:18mm;color:#000}
+    h2{color:#059669;border-bottom:3px solid #059669;padding-bottom:8px}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{border:1px solid #d1fae5;padding:8px;text-align:right;font-size:12px}
+    th{background:#f0fdf4;color:#065f46;font-weight:700}
+    .rx{background:#f0fdf4;padding:12px;border:1px solid #a7f3d0;white-space:pre-line;border-radius:8px}
+    </style></head><body>
+    <h2>${settings.clinicName} — تقرير طبي</h2>
+    <p><b>المريض:</b> ${activePatient?.name || "—"} &nbsp; <b>التاريخ:</b> ${new Date().toLocaleDateString("ar-IQ")}</p>
+    <p><b>التشخيص:</b> ${diagnosis || "—"}</p>
+    <table><tr><th>الفحص</th><th>الحالة</th></tr>${allItems}</table>
+    <div style="margin-top:16px"><p><b>الخطة العلاجية:</b></p><div class="rx">${rx || "—"}</div></div>
+    </body></html>`);
+    pw.document.close(); setTimeout(() => pw.print(), 400);
+  }
+
+  // ===== الواجهة =====
+  return (
+    <div className={`${T.bg} ${T.text} min-h-screen w-full flex flex-col overflow-hidden transition-colors duration-300`}
+      style={{ fontFamily: "'Cairo', sans-serif" }}>
+
+      {/* ===== هيدر ===== */}
+      <header className={`${T.barBg} border-b ${T.barBor} h-14 flex items-center justify-between px-4 gap-3
+        flex-shrink-0 relative z-50 transition-colors duration-300`}
+        style={dark ? { boxShadow: "0 2px 20px rgba(0,0,0,.4)" } : { boxShadow: "0 1px 8px rgba(0,0,0,.06)" }}>
+
+        {/* لوغو */}
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+            style={{ background: "linear-gradient(135deg,#059669,#34d399)", boxShadow: "0 4px 12px rgba(52,211,153,.35)" }}>
+            🏥
+          </div>
+          <div>
+            <h1 className="text-[13px] font-bold leading-tight">{settings.clinicName}</h1>
+            <p className={`text-[9px] ${T.muted} leading-tight`}>{settings.doctorName}</p>
+          </div>
+        </div>
+
+        {/* أدوات */}
+        <div className="flex items-center gap-2">
+          {/* زر الختم */}
+          <button onClick={() => setStampOn(s => !s)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold
+              transition-all duration-200 border
+              ${stampOn
+                ? "bg-sky-500/15 border-sky-500/40 text-sky-400 shadow-[0_0_10px_rgba(56,189,248,.2)]"
+                : dark ? "bg-white/5 border-white/10 text-slate-400 hover:border-sky-500/30 hover:text-sky-400"
+                       : "bg-white border-slate-200 text-slate-500 hover:border-sky-400 hover:text-sky-500"}`}>
+            🔏 {stampOn ? "إزالة الختم" : "تطبيق الختم"}
+          </button>
+
+          {/* الإعدادات */}
+          <div className="relative">
+            <button onClick={() => { setSettings2(s => !s); setSD(settings); }}
+              className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm transition-all border
+                ${dark ? "bg-white/5 border-white/10 text-slate-400 hover:border-emerald-500/40 hover:text-emerald-400"
+                       : "bg-white border-slate-200 text-slate-500 hover:border-emerald-400"}`}>
+              ⚙️
+            </button>
+            {showSettings && (
+              <div className={`absolute top-11 left-0 w-72 rounded-2xl border p-4 z-50
+                ${dark ? "bg-[#131B2E] border-[#1E293B] shadow-2xl" : "bg-white border-slate-100 shadow-xl"}`}
+                onClick={e => e.stopPropagation()}>
+                <p className="text-[12px] font-bold text-emerald-500 mb-3">⚙️ إعدادات الواجهة والختم</p>
+                {[["اسم العيادة","clinicName"],["اسم الطبيب","doctorName"],
+                  ["السطر الأول في الختم","stampLine1"],["السطر الثاني في الختم","stampLine2"]]
+                  .map(([lbl, key]) => (
+                    <div key={key} className="mb-2">
+                      <label className={`text-[10px] font-bold ${T.muted} block mb-1`}>{lbl}</label>
+                      <input value={settingsDraft[key]} onChange={e => setSD(s => ({ ...s, [key]: e.target.value }))}
+                        className={`w-full text-[11px] px-2.5 py-1.5 rounded-lg border outline-none ${T.inp}`} />
+                    </div>
+                  ))}
+                <label className={`text-[10px] font-bold ${T.muted} block mb-1`}>شكل الختم</label>
+                <div className="flex gap-2 mb-3">
+                  {["classic","modern"].map(s => (
+                    <button key={s} onClick={() => setSD(d => ({ ...d, stampShape: s }))}
+                      className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold border transition-all
+                        ${settingsDraft.stampShape === s
+                          ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400"
+                          : dark ? "bg-white/5 border-white/10 text-slate-500" : "bg-slate-50 border-slate-200 text-slate-500"}`}>
+                      {s === "classic" ? "🔵 دائري" : "🔴 مستطيل"}
+                    </button>
+                  ))}
+                </div>
+                {/* معاينة الختم */}
+                <div className="bg-white rounded-lg p-3 flex justify-center mb-3">
+                  <StampEl l1={settingsDraft.stampLine1} l2={settingsDraft.stampLine2} shape={settingsDraft.stampShape} />
+                </div>
+                <button onClick={() => { setSettings(settingsDraft); localStorage.setItem("dwaee_settings", JSON.stringify(settingsDraft)); setSettings2(false); showToast("✅ تم حفظ الإعدادات", true); }}
+                  className="w-full py-2 rounded-xl text-[12px] font-bold text-white transition-all
+                    hover:scale-[1.02] active:scale-95"
+                  style={{ background: "linear-gradient(to right,#059669,#34d399)" }}>
+                  💾 حفظ الإعدادات
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* مفتاح الثيم */}
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border
+            ${dark ? "bg-white/5 border-white/10" : "bg-white border-slate-200"}`}>
+            <span className="text-[12px]">{dark ? "🌙" : "☀️"}</span>
+            <button onClick={() => setDark(d => !d)}
+              className={`relative w-10 h-5 rounded-full transition-all duration-300
+                ${dark ? "bg-emerald-600" : "bg-slate-300"}`}>
+              <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all duration-300
+                ${dark ? "left-5" : "left-0.5"}`} />
+            </button>
+            <span className="text-[12px]">{dark ? "☀️" : "🌙"}</span>
+          </div>
+        </div>
+      </header>
+
+      {/* ===== الجسم ===== */}
+      <div className="grid gap-2.5 p-2.5 flex-1 overflow-hidden"
+        style={{ gridTemplateColumns: "190px 1fr 215px", height: "calc(100vh - 56px)" }}>
+
+        {/* ===== عمود الطابور ===== */}
+        <Card dark={dark} className="flex flex-col p-3 overflow-hidden gap-2">
+          <p className="text-[11px] font-bold text-emerald-500 flex items-center gap-1.5 flex-shrink-0">
+            📅 طابور الحجز اليومي
+          </p>
+          {/* إحصاء */}
+          <div className="grid grid-cols-2 gap-2 flex-shrink-0">
+            {[["انتظار", patients.length - doneCount, "text-emerald-400"],
+              ["معاينة", doneCount, "text-sky-400"]].map(([lbl, num, cls]) => (
+              <div key={lbl} className={`${T.stat} border rounded-xl p-2 text-center`}>
+                <p className={`text-xl font-black ${cls}`}
+                  style={dark ? { textShadow: "0 0 12px currentColor" } : {}}>{num}</p>
+                <p className={`text-[8px] ${T.muted} mt-0.5`}>{lbl}</p>
+              </div>
+            ))}
+          </div>
+          {/* قائمة */}
+          <div className="flex-1 overflow-y-auto flex flex-col gap-1.5 pr-0.5">
+            {patients.map(p => (
+              <div key={p.id}
+                onClick={() => { setActive(p); setDiagnosis(""); setRx(""); setStampOn(false); }}
+                className={`${T.pitem} border rounded-xl px-2.5 py-2 cursor-pointer transition-all
+                  ${activePatient?.id === p.id ? "border-emerald-500/50 bg-emerald-950/30 shadow-[0_0_8px_rgba(52,211,153,.15)]" : ""}`}>
+                <p className="text-[11px] font-bold">{p.name}</p>
+                <div className="flex justify-between mt-0.5">
+                  <span className={`text-[9px] ${T.muted}`}>{p.time}</span>
+                  <span className={`text-[9px] font-bold ${typeColor(p.type)}`}>{typeLabel(p.type)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* ===== العمود الأوسط ===== */}
+        <div className="flex flex-col gap-2.5 overflow-hidden">
+
+          {/* تشخيص */}
+          <Card dark={dark} className="p-3 flex-shrink-0">
+            <p className="text-[11px] font-bold text-emerald-500 mb-2">🩺 {settings.clinicName}</p>
+            <p className={`text-[10px] ${T.muted} mb-2`}>
+              المريض: <span className="text-emerald-500 font-bold text-[12px]">
+                {activePatient?.name || "لم يُختر بعد"}
+              </span>
+            </p>
+            <textarea value={diagnosis} onChange={e => setDiagnosis(e.target.value)}
+              rows={2} placeholder="التشخيص والملاحظات السريرية..."
+              className={`w-full text-[12px] px-3 py-2 rounded-xl border outline-none resize-none
+                focus:ring-2 transition-all ${T.inp}`} />
+          </Card>
+
+          {/* روشتة */}
+          <Card dark={dark} className="flex-1 flex flex-col p-3 overflow-hidden gap-2">
+            <p className="text-[11px] font-bold text-emerald-500 flex-shrink-0">💊 الروشتة الإلكترونية</p>
+
+            {/* زر Glassmorphism */}
+            <button onClick={() => setMedModal(true)}
+              className="w-full px-4 py-2.5 rounded-xl text-[12px] font-bold flex items-center justify-center gap-2
+                transition-all duration-200 hover:scale-[1.01] flex-shrink-0 border"
+              style={dark
+                ? { background: "linear-gradient(135deg,rgba(52,211,153,.12),rgba(5,150,105,.07))",
+                    borderColor: "rgba(52,211,153,.3)", color: "#34d399",
+                    boxShadow: "0 4px 16px rgba(52,211,153,.1), 0 1px 0 rgba(255,255,255,.04) inset" }
+                : { background: "linear-gradient(135deg,rgba(5,150,105,.08),rgba(52,211,153,.05))",
+                    borderColor: "rgba(5,150,105,.25)", color: "#059669" }}>
+              💊 قائمة العلاجات الموصى بها
+              <span className="text-[9px] px-2 py-0.5 rounded-full border"
+                style={dark
+                  ? { background: "rgba(52,211,153,.15)", borderColor: "rgba(52,211,153,.3)" }
+                  : { background: "rgba(5,150,105,.1)", borderColor: "rgba(5,150,105,.2)" }}>
+                {meds.length} علاج
+              </span>
+            </button>
+
+            {/* حقل الروشتة + الختم */}
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden rounded-xl border"
+              style={dark ? { borderColor: "rgba(52,211,153,.15)" } : { borderColor: "#e2e8f0" }}>
+              <textarea value={rx} onChange={e => setRx(e.target.value)}
+                placeholder={"اكتب العلاجات هنا سطر بسطر...\nAmoxicillin 500mg - 1x3"}
+                className={`flex-1 px-3 py-2.5 outline-none resize-none text-[12px] leading-relaxed
+                  border-0 bg-transparent min-h-0 ${T.text}`}
+                style={{ fontFamily: "monospace" }} />
+              {stampOn && (
+                <div className={`flex justify-end items-center p-2 border-t
+                  ${dark ? "border-emerald-900/30 bg-white" : "border-slate-100 bg-white"}`}>
+                  <StampEl l1={settings.stampLine1} l2={settings.stampLine2} shape={settings.stampShape} />
+                </div>
+              )}
+            </div>
+
+            {/* أزرار الإجراءات */}
+            <div className="flex flex-col gap-1.5 flex-shrink-0">
+              <button onClick={sendRx}
+                className="w-full py-2.5 rounded-xl text-[12px] font-bold text-white flex items-center justify-center gap-2
+                  transition-all duration-200 hover:scale-[1.02] active:scale-95"
+                style={{ background: "linear-gradient(to right,#059669,#34d399)",
+                         boxShadow: "0 4px 14px rgba(52,211,153,.3)" }}>
+                📤 إرسال للصيدلية
+              </button>
+              <button onClick={printRx}
+                className="w-full py-2 rounded-xl text-[12px] font-bold text-white flex items-center justify-center gap-2
+                  transition-all hover:scale-[1.02] active:scale-95"
+                style={{ background: "linear-gradient(to right,#0369a1,#38bdf8)",
+                         boxShadow: "0 4px 12px rgba(56,189,248,.25)" }}>
+                🖨️ طباعة وصفة
+              </button>
+              <button onClick={printReport}
+                className="w-full py-2 rounded-xl text-[12px] font-bold text-white flex items-center justify-center gap-2
+                  transition-all hover:scale-[1.02] active:scale-95"
+                style={{ background: "linear-gradient(to right,#374151,#6b7280)" }}>
+                📄 طباعة تقرير
+              </button>
+            </div>
+          </Card>
+        </div>
+
+        {/* ===== عمود الفحوصات ===== */}
+        <div className="flex flex-col gap-2.5 overflow-y-auto pr-0.5">
+
+          {/* فحوصات */}
+          <Card dark={dark} className="p-3">
+            <p className="text-[11px] font-bold text-emerald-500 mb-2">🔬 الفحوصات المختبرية</p>
+            {labs.map((item, i) => (
+              <CheckRow key={item.id} item={item} dark={dark}
+                onToggle={() => toggleLab(i)} onEdit={() => editLab(i)}
+                onDelete={() => delLab(i)} onSave={v => saveLab(i, v)} />
+            ))}
+            <AddRow dark={dark} T={T} placeholder="تحليل إضافي..." color="emerald" onAdd={addLab} />
+          </Card>
+
+          {/* أشعة */}
+          <Card dark={dark} className="p-3">
+            <p className="text-[11px] font-bold text-emerald-500 mb-2">☢️ الأشعة والسونار</p>
+            {rads.map((item, i) => (
+              <CheckRow key={item.id} item={item} dark={dark}
+                onToggle={() => toggleRad(i)} onEdit={() => editRad(i)}
+                onDelete={() => delRad(i)} onSave={v => saveRad(i, v)} />
+            ))}
+            <AddRow dark={dark} T={T} placeholder="فحص إضافي..." color="sky" onAdd={addRad} />
+          </Card>
+        </div>
+      </div>
+
+      {/* ===== مودال الأدوية ===== */}
+      {showMedModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-3"
+          onClick={() => setMedModal(false)}>
+          <div className={`rounded-2xl border w-full max-w-3xl max-h-[88vh] flex flex-col overflow-hidden
+            ${dark ? "bg-[#0c1a2e] border-emerald-900/40" : "bg-white border-slate-100"}`}
+            style={dark ? { boxShadow: "0 24px 64px rgba(0,0,0,.7)" } : { boxShadow: "0 24px 48px rgba(0,0,0,.12)" }}
+            onClick={e => e.stopPropagation()}>
+
+            {/* رأس */}
+            <div className={`px-5 py-3.5 border-b flex justify-between items-center flex-shrink-0
+              ${dark ? "bg-[#091528] border-emerald-900/30" : "bg-slate-50 border-slate-100"}`}>
+              <div className="flex items-center gap-3">
+                <span className="text-[13px] font-bold text-emerald-500">💊 قائمة العلاجات الموصى بها</span>
+                <span className="text-[9px] px-2 py-0.5 rounded-full border text-emerald-400"
+                  style={{ background: "rgba(52,211,153,.1)", borderColor: "rgba(52,211,153,.25)" }}>
+                  {meds.length} علاج
+                </span>
+              </div>
+              <button onClick={() => setMedModal(false)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] border transition-all
+                  ${dark ? "bg-white/5 border-white/10 text-slate-400 hover:text-white" : "bg-slate-100 border-slate-200 text-slate-500"}`}>
+                إغلاق ✕
+              </button>
+            </div>
+
+            {/* شبكة */}
+            <div className="p-4 overflow-y-auto flex-1">
+              <div className="grid gap-3 mb-4"
+                style={{ gridTemplateColumns: "repeat(auto-fill,minmax(138px,1fr))" }}>
+                {meds.map((m, i) => (
+                  <div key={m.id}
+                    className={`rounded-xl border p-3 text-center transition-all group cursor-pointer
+                      ${dark
+                        ? "bg-emerald-950/30 border-emerald-900/30 hover:border-emerald-500/40 hover:bg-emerald-950/50 hover:-translate-y-1"
+                        : "bg-slate-50 border-slate-100 hover:border-emerald-300 hover:bg-emerald-50 hover:-translate-y-1"}`}
+                    style={{ boxShadow: dark ? "0 4px 16px rgba(0,0,0,.2)" : "" }}>
+                    {/* صورة/إيموجي */}
+                    <div className="w-16 h-16 mx-auto mb-2 rounded-xl border overflow-hidden
+                      flex items-center justify-center relative cursor-pointer"
+                      style={{ background: dark ? "rgba(52,211,153,.05)" : "#f0fdf4",
+                                borderColor: dark ? "rgba(52,211,153,.1)" : "#d1fae5" }}
+                      onClick={() => pickEmoji(i)}>
+                      {m.img
+                        ? <img src={m.img} alt={m.name} className="w-full h-full object-contain" />
+                        : <span className="text-3xl">{m.emoji || "💊"}</span>}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100
+                        transition-opacity flex items-center justify-center text-white text-[10px]">
+                        ✏️ تغيير
+                      </div>
+                    </div>
+                    <p className={`text-[9px] font-bold mb-0.5 leading-tight ${dark ? "text-slate-100" : "text-slate-700"}`}>{m.name}</p>
+                    <p className={`text-[8px] mb-2 ${T.muted}`}>{m.cat}</p>
+                    <div className="flex gap-1.5 justify-center">
+                      <button onClick={() => { addToRx(m.name); setMedModal(false); }}
+                        className="px-2 py-1 rounded-lg text-[8px] font-bold border transition-all
+                          hover:bg-emerald-500/20 text-emerald-500"
+                        style={{ borderColor: "rgba(52,211,153,.3)", background: "rgba(52,211,153,.08)" }}>
+                        ➕ للروشتة
+                      </button>
+                      <button onClick={() => delMed(i)}
+                        className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px]
+                          border border-red-500/20 bg-red-500/08 text-red-400 hover:bg-red-500/20 transition-all">
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* فورم الإضافة */}
+              <div className={`rounded-xl border p-3 ${dark ? "bg-emerald-950/20 border-emerald-900/30" : "bg-slate-50 border-slate-200"}`}>
+                <p className="text-[11px] font-bold text-amber-500 mb-2.5">➕ إضافة علاج جديد</p>
+                <div className="flex gap-2.5 items-center flex-wrap">
+                  {/* رفع صورة */}
+                  <div className="w-14 h-14 rounded-xl border-2 border-dashed flex flex-col items-center
+                    justify-center cursor-pointer transition-all flex-shrink-0 overflow-hidden relative"
+                    style={{ borderColor: "rgba(52,211,153,.4)", background: "rgba(52,211,153,.05)" }}
+                    onClick={() => fileRef.current?.click()}>
+                    {newMedImg
+                      ? <img src={newMedImg} alt="" className="w-full h-full object-contain" />
+                      : <>
+                          <span className="text-xl">{newMedEmoji}</span>
+                          <span className="text-[7px] text-emerald-500 mt-0.5">صورة</span>
+                        </>}
+                    <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImgUpload} />
+                  </div>
+                  <button onClick={() => pickEmoji("new")}
+                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all flex-shrink-0
+                      ${dark ? "bg-white/5 border-white/10 text-slate-400 hover:text-emerald-400" : "bg-white border-slate-200 text-slate-500"}`}>
+                    🎭 رمز
+                  </button>
+                  <input value={newMedName} onChange={e => setNewMedName(e.target.value)}
+                    placeholder="اسم العلاج والجرعة..."
+                    className={`flex-1 h-9 px-3 rounded-xl border text-[11px] outline-none min-w-[120px] ${T.inp}`} />
+                  <input value={newMedCat} onChange={e => setNewMedCat(e.target.value)}
+                    placeholder="التصنيف..."
+                    className={`w-28 h-9 px-3 rounded-xl border text-[11px] outline-none ${T.inp}`} />
+                  <button onClick={addMed}
+                    className="h-9 px-4 rounded-xl text-[11px] font-bold text-white flex-shrink-0 transition-all hover:scale-105"
+                    style={{ background: "linear-gradient(135deg,#059669,#34d399)",
+                             boxShadow: "0 4px 12px rgba(52,211,153,.3)" }}>
+                    💾 حفظ
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== مودال الإيموجي ===== */}
+      {showEmoji && (
+        <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center"
+          onClick={() => setShowEmoji(false)}>
+          <div className={`rounded-2xl border p-4 w-72 ${dark ? "bg-[#131B2E] border-[#1E293B]" : "bg-white border-slate-100"}`}
+            onClick={e => e.stopPropagation()}>
+            <p className="text-[12px] font-bold text-emerald-500 mb-3">اختر رمز الدواء</p>
+            <div className="flex flex-wrap gap-2">
+              {EMOJIS.map(e => (
+                <button key={e} onClick={() => selectEmoji(e)}
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center text-2xl
+                    border transition-all hover:scale-110 hover:border-emerald-500/50
+                    ${dark ? "bg-white/5 border-white/10" : "bg-slate-50 border-slate-100"}`}>
+                  {e}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setShowEmoji(false)}
+              className={`w-full mt-3 py-1.5 rounded-xl text-[11px] border transition-all
+                ${dark ? "bg-white/5 border-white/10 text-slate-400" : "bg-slate-100 border-slate-200 text-slate-500"}`}>
+              إغلاق
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== توست ===== */}
+      {toast && (
+        <div className={`fixed bottom-4 left-4 px-5 py-2.5 rounded-xl text-[11px] font-bold text-white z-[70]
+          shadow-lg animate-bounce-in transition-all
+          ${toast.ok ? "bg-gradient-to-r from-emerald-600 to-emerald-400" : "bg-gradient-to-r from-red-600 to-red-400"}`}>
+          {toast.msg}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== AddRow مساعد =====
+function AddRow({ dark, T, placeholder, color, onAdd }) {
+  const [val, setVal] = useState("");
+  const colors = {
+    emerald: { btn: "bg-emerald-500/10 border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/20" },
+    sky:     { btn: "bg-sky-500/10 border-sky-500/30 text-sky-400 hover:bg-sky-500/20" },
+  };
+  function submit() { onAdd(val); setVal(""); }
+  return (
+    <div className="flex gap-1.5 mt-2">
+      <input value={val} onChange={e => setVal(e.target.value)} placeholder={placeholder}
+        onKeyDown={e => e.key === "Enter" && submit()}
+        className={`flex-1 h-7 px-2.5 rounded-lg border text-[10px] outline-none ${T.inp}`} />
+      <button onClick={submit}
+        className={`w-7 h-7 rounded-lg border flex items-center justify-center font-bold transition-all ${colors[color].btn}`}>
+        +
+      </button>
+    </div>
+  );
+}
+</script>
+</body>
+            </html>
