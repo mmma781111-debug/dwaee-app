@@ -1,0 +1,18 @@
+cat > /mnt/user-data/outputs/vercel.json << 'EOF'
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "*.html",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ]
+}
+EOF
+echo "Done"
